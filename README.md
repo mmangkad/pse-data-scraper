@@ -67,9 +67,8 @@ pse-data-scraper/
 
 ## Notes
 
-- The script includes polite delays between requests to comply with the PSE EDGE website’s usage policies.
-- File names are sanitized to avoid issues with special characters.
-- All data is sourced from public endpoints provided by the PSE.
+- The script includes polite delays between requests.
+- All data is sourced from endpoints provided by the PSE.
 
 ---
 
