@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.env
+finalstocks.csv
+combined.csv
+historicaldata/
+.DS_Store
