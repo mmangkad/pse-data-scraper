@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pse-data-scraper"
+version = "0.1.0"
+description = "Scrape historical PSE EDGE data and consolidate to CSV."
+readme = "README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+dependencies = [
+    "beautifulsoup4>=4.12",
+    "requests>=2.28",
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.scripts]
+pse = "pse_data_scraper.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pse_data_scraper*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
