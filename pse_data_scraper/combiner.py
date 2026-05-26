@@ -30,19 +30,16 @@ def combine_csvs(data_folder: str = "historicaldata", output_file: str = "combin
         writer.writerow(["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"])
 
         for file_path in csv_files:
-            filename = file_path.stem
-            if "_" not in filename:
-                logger.warning("Skipping malformed filename: %s", filename)
-                continue
-            symbol, company = filename.split("_", 1)
-
             with file_path.open("r", encoding="utf-8") as infile:
                 reader = csv.DictReader(infile)
+                if not reader.fieldnames or "Symbol" not in reader.fieldnames:
+                    logger.warning("Skipping file with unexpected format: %s", file_path.name)
+                    continue
                 for row in reader:
                     writer.writerow(
                         [
-                            row.get("Symbol") or symbol,
-                            company,
+                            row.get("Symbol", ""),
+                            row.get("Company", ""),
                             row.get("Date", ""),
                             row.get("Value", ""),
                             row.get("Open", ""),
