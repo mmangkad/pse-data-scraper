@@ -106,12 +106,13 @@ def write_company_history_csv(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", newline="", encoding="utf-8") as company_file:
         writer = csv.writer(company_file)
-        writer.writerow(["Date", "Symbol", "Value", "Open", "Close", "High", "Low"])
+        writer.writerow(["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"])
         for item in rows:
             writer.writerow(
                 [
-                    format_output_date(item.date),
                     item.symbol,
+                    company.company_name,
+                    format_output_date(item.date),
                     item.value,
                     item.open,
                     item.close,
