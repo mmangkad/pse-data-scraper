@@ -10,7 +10,7 @@ from datetime import date, datetime
 from typing import Union
 
 PAYLOAD_DATE_FORMAT = "%m-%d-%Y"
-OUTPUT_DATE_FORMAT = "%d/%m/%Y"
+OUTPUT_DATE_FORMAT = "%Y-%m-%d"
 
 
 def ensure_payload_date(value: Union[str, date, datetime]) -> str:
