@@ -88,7 +88,7 @@ def fetch_historical_data(
         )
         response.raise_for_status()
         cache_payload = response.json()
-        if cache_path is not None:
+        if cache_path is not None and cache_payload.get("chartData"):
             _save_cached_json(cache_path, cache_payload)
 
     chart_data = cache_payload.get("chartData", [])
