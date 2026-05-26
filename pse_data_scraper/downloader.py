@@ -125,8 +125,8 @@ def write_company_history_csv(
 
 def download_historical_data(
     client: PSEClient,
-    input_csv: Optional[str] = "finalstocks.csv",
     companies: Optional[Sequence[Company]] = None,
+    input_csv: Optional[str] = None,
     output_dir: str = "historicaldata",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -135,9 +135,9 @@ def download_historical_data(
     cache_dir: Optional[str] = ".cache",
     refresh: bool = False,
 ) -> List[Path]:
+    if companies is None and input_csv is None:
+        raise ValueError("Either 'companies' or 'input_csv' must be provided")
     if companies is None:
-        if input_csv is None:
-            raise ValueError("input_csv is required when companies is not provided")
         companies = load_companies_from_csv(input_csv)
 
     symbol_set = {symbol.strip().upper() for symbol in symbols} if symbols else None
