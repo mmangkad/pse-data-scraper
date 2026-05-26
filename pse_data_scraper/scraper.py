@@ -69,7 +69,10 @@ def scrape_companies(
         logger.info("Fetching page %s", page)
         response = client.get(url, headers={"Referer": COMPANY_DIRECTORY_REFERER})
         if response.status_code != 200:
-            logger.warning("Failed to fetch page %s (status %s)", page, response.status_code)
+            logger.warning(
+                "Failed to fetch page %s (status %s). Scraping stopped with %s companies — the list may be incomplete.",
+                page, response.status_code, len(all_companies),
+            )
             break
 
         new_rows = parse_companies_from_html(response.text)
