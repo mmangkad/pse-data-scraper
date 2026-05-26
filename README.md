@@ -70,7 +70,7 @@ data_dir = "data"
 cache_dir = ".cache"
 
 [network]
-rate_limit = 0.8
+rate_limit = 0.6
 
 [download]
 start_date = "2020-01-01"
@@ -88,7 +88,7 @@ from pse_data_scraper.combiner import combine_csvs
 client = PSEClient(rate_limit_seconds=0.6)
 companies = scrape_companies(client)
 save_companies_to_csv(companies, "data/companies.csv")
-download_historical_data(client, input_csv="data/companies.csv", output_dir="data/history")
+download_historical_data(client, companies=companies, output_dir="data/history")
 combine_csvs("data/history", "data/combined.csv")
 ```
 
@@ -113,8 +113,11 @@ pse-data-scraper/
 ├── requirements.txt
 ├── requirements-dev.txt
 ├── pse_data_scraper/
+│   ├── __init__.py
+│   ├── __main__.py
 │   ├── cli.py
 │   ├── client.py
+│   ├── combiner.py
 │   ├── config.py
 │   ├── downloader.py
 │   ├── models.py
@@ -122,6 +125,16 @@ pse-data-scraper/
 │   ├── scraper.py
 │   ├── status.py
 │   └── utils.py
+├── tests/
+│   ├── conftest.py
+│   ├── test_client.py
+│   ├── test_combiner.py
+│   ├── test_config.py
+│   ├── test_downloader.py
+│   ├── test_models.py
+│   ├── test_scraper.py
+│   ├── test_sort.py
+│   └── test_utils.py
 └── docs/
     └── API.md
 ```

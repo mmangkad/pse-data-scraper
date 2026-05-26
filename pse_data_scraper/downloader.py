@@ -127,7 +127,7 @@ def download_historical_data(
     client: PSEClient,
     companies: Optional[Sequence[Company]] = None,
     input_csv: Optional[str] = None,
-    output_dir: str = "historicaldata",
+    output_dir: str = "data/history",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     symbols: Optional[Sequence[str]] = None,

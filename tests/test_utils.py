@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 import pytest
 
-from pse_data_scraper.utils import ensure_payload_date, sanitize_filename
+from pse_data_scraper.utils import ensure_payload_date, format_output_date, sanitize_filename
 
 
 def test_sanitize_filename_basic():
@@ -41,3 +41,8 @@ def test_ensure_payload_date_raises_on_garbage():
 def test_ensure_payload_date_raises_on_empty():
     with pytest.raises(ValueError, match="Cannot parse date"):
         ensure_payload_date("")
+
+
+def test_format_output_date_iso8601():
+    assert format_output_date(date(2024, 1, 2)) == "2024-01-02"
+    assert format_output_date(date(2023, 12, 31)) == "2023-12-31"

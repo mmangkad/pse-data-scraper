@@ -24,7 +24,7 @@ def test_combine_reads_company_from_csv(tmp_path: Path):
     _write_csv(
         input_dir / "BDO_something.csv",
         ["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"],
-        [["BDO", "BDO Unibank, Inc.", "01/01/2024", "100", "10", "11", "12", "9"]],
+        [["BDO", "BDO Unibank, Inc.", "2024-01-01", "100", "10", "11", "12", "9"]],
     )
 
     output = tmp_path / "combined.csv"
@@ -42,12 +42,12 @@ def test_combine_multiple_files(tmp_path: Path):
     _write_csv(
         input_dir / "a.csv",
         ["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"],
-        [["AC", "Ayala Corporation", "02/01/2024", "50", "700", "710", "715", "695"]],
+        [["AC", "Ayala Corporation", "2024-01-02", "50", "700", "710", "715", "695"]],
     )
     _write_csv(
         input_dir / "b.csv",
         ["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"],
-        [["BDO", "BDO Unibank, Inc.", "02/01/2024", "200", "129", "130", "131", "128"]],
+        [["BDO", "BDO Unibank, Inc.", "2024-01-02", "200", "129", "130", "131", "128"]],
     )
 
     output = tmp_path / "combined.csv"
@@ -65,12 +65,12 @@ def test_combine_skips_files_without_symbol_column(tmp_path: Path):
     _write_csv(
         input_dir / "good.csv",
         ["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"],
-        [["AC", "Ayala Corp", "02/01/2024", "50", "700", "710", "715", "695"]],
+        [["AC", "Ayala Corp", "2024-01-02", "50", "700", "710", "715", "695"]],
     )
     _write_csv(
         input_dir / "bad.csv",
         ["Date", "Price"],
-        [["02/01/2024", "710"]],
+        [["2024-01-02", "710"]],
     )
 
     output = tmp_path / "combined.csv"
