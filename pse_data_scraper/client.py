@@ -12,7 +12,10 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 DEFAULT_HEADERS = {
-    "User-Agent": "Mozilla/5.0",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ),
     "Accept": "application/json, text/html, */*; q=0.01",
     "Connection": "keep-alive",
 }
