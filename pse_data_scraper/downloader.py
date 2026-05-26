@@ -97,6 +97,7 @@ def fetch_historical_data(
         parsed = HistoricalPrice.from_api(item, company.stock_symbol)
         if parsed is not None:
             results.append(parsed)
+    results.sort(key=lambda r: r.date)
     return results
 
 
