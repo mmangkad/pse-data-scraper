@@ -53,23 +53,21 @@ class PSEClient:
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
 
-    def _respect_rate_limit(self) -> None:
-        if self.rate_limit_seconds <= 0:
+    def _wait_for_rate_limit(self) -> None:
+        if self.rate_limit_seconds <= 0 or self._last_request_at is None:
             return
-        now = time.monotonic()
-        if self._last_request_at is None:
-            self._last_request_at = now
-            return
-        elapsed = now - self._last_request_at
+        elapsed = time.monotonic() - self._last_request_at
         if elapsed < self.rate_limit_seconds:
             time.sleep(self.rate_limit_seconds - elapsed)
-        self._last_request_at = time.monotonic()
 
     def request(self, method: str, url: str, **kwargs: Any) -> requests.Response:
-        self._respect_rate_limit()
+        self._wait_for_rate_limit()
         if "timeout" not in kwargs:
             kwargs["timeout"] = self.timeout_seconds
-        return self.session.request(method=method, url=url, **kwargs)
+        try:
+            return self.session.request(method=method, url=url, **kwargs)
+        finally:
+            self._last_request_at = time.monotonic()
 
     def get(self, url: str, **kwargs: Any) -> requests.Response:
         return self.request("GET", url, **kwargs)
