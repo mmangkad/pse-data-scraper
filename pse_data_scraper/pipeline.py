@@ -108,38 +108,3 @@ def sync_data(
 
     logger.info("Step 3: Exporting combined CSV...")
     export_prices(history_dir, combined_csv)
-
-
-def run_all(
-    output_companies_csv: str = "finalstocks.csv",
-    output_data_dir: str = "historicaldata",
-    output_combined_csv: str = "combined.csv",
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    rate_limit_seconds: float = 0.6,
-    symbols: Optional[Sequence[str]] = None,
-    max_companies: Optional[int] = None,
-    cache_dir: Optional[str] = ".cache",
-    refresh: bool = False,
-) -> None:
-    client = PSEClient(rate_limit_seconds=rate_limit_seconds)
-
-    logger.info("Step 1: Scraping company list...")
-    companies = scrape_companies(client)
-    save_companies_to_csv(companies, output_companies_csv)
-
-    logger.info("Step 2: Downloading historical data...")
-    download_historical_data(
-        client=client,
-        input_csv=output_companies_csv,
-        output_dir=output_data_dir,
-        start_date=start_date,
-        end_date=end_date or date.today(),
-        symbols=symbols,
-        max_companies=max_companies,
-        cache_dir=cache_dir,
-        refresh=refresh,
-    )
-
-    logger.info("Step 3: Combining CSV files...")
-    combine_csvs(output_data_dir, output_combined_csv)

@@ -300,54 +300,6 @@ def build_parser() -> argparse.ArgumentParser:
     status_parser.add_argument("--combined", help="Combined CSV path")
     status_parser.set_defaults(func=handle_status)
 
-    scrape_parser = subparsers.add_parser(
-        "scrape", help="Deprecated. Use `pse companies` instead."
-    )
-    scrape_parser.add_argument("--output", dest="companies", help="Output CSV file")
-    scrape_parser.add_argument("--rate-limit", type=float, help="Seconds between requests")
-    scrape_parser.add_argument("--max-pages", type=int, help="Limit number of pages")
-    scrape_parser.add_argument("--refresh", action="store_true", help="Re-scrape companies")
-    scrape_parser.set_defaults(func=handle_companies)
-
-    download_parser = subparsers.add_parser(
-        "download", help="Deprecated. Use `pse prices` instead."
-    )
-    download_parser.add_argument("--input", dest="companies", help="Input company CSV")
-    download_parser.add_argument("--output-dir", dest="history_dir", help="Output folder")
-    download_parser.add_argument("--start-date", dest="start_date", help="Start date (MM-DD-YYYY)")
-    download_parser.add_argument("--end-date", dest="end_date", help="End date (MM-DD-YYYY)")
-    download_parser.add_argument("--rate-limit", type=float, help="Seconds between requests")
-    download_parser.add_argument("--symbols", help="Comma-separated stock symbols to download")
-    download_parser.add_argument("--max-companies", type=int, help="Limit number of companies")
-    download_parser.add_argument("--cache-dir", help="Cache folder")
-    download_parser.add_argument("--no-cache", action="store_true", help="Disable caching")
-    download_parser.add_argument("--refresh", action="store_true", help="Refresh companies and prices")
-    download_parser.set_defaults(func=handle_prices)
-
-    combine_parser = subparsers.add_parser(
-        "combine", help="Deprecated. Use `pse export` instead."
-    )
-    combine_parser.add_argument("--data-dir", dest="history_dir", help="Data folder")
-    combine_parser.add_argument("--output", dest="combined", help="Output CSV file")
-    combine_parser.add_argument("--format", default="csv", help="Export format (csv)")
-    combine_parser.set_defaults(func=handle_export)
-
-    all_parser = subparsers.add_parser(
-        "all", help="Deprecated. Use `pse sync` instead."
-    )
-    all_parser.add_argument("--output", dest="companies", help="Output company CSV")
-    all_parser.add_argument("--output-dir", dest="history_dir", help="Data folder")
-    all_parser.add_argument("--combined", dest="combined", help="Combined CSV file")
-    all_parser.add_argument("--start-date", dest="start_date", help="Start date (MM-DD-YYYY)")
-    all_parser.add_argument("--end-date", dest="end_date", help="End date (MM-DD-YYYY)")
-    all_parser.add_argument("--rate-limit", type=float, help="Seconds between requests")
-    all_parser.add_argument("--symbols", help="Comma-separated stock symbols to download")
-    all_parser.add_argument("--max-companies", type=int, help="Limit number of companies")
-    all_parser.add_argument("--cache-dir", help="Cache folder")
-    all_parser.add_argument("--no-cache", action="store_true", help="Disable caching")
-    all_parser.add_argument("--refresh", action="store_true", help="Refresh companies and prices")
-    all_parser.set_defaults(func=handle_sync)
-
     return parser
 
 

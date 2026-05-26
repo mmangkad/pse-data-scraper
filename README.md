@@ -51,8 +51,6 @@ Common options:
 - `--no-cache` disables cached API responses.
 - Dates accept `MM-DD-YYYY` or `YYYY-MM-DD`.
 
-Legacy commands (still supported): `scrape`, `download`, `combine`, `all`.
-
 ## Configuration
 
 Generate a starter config:
@@ -124,7 +122,6 @@ pse-data-scraper/
 │   ├── scraper.py
 │   ├── status.py
 │   └── utils.py
-├── utils/               # compatibility wrappers
 └── docs/
     └── API.md
 ```
