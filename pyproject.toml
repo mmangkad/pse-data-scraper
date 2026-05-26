@@ -7,7 +7,7 @@ name = "pse-data-scraper"
 version = "0.1.0"
 description = "Scrape historical PSE EDGE data and consolidate to CSV."
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 dependencies = [
     "beautifulsoup4>=4.12",
