@@ -2,12 +2,17 @@ import csv
 import json
 from datetime import date
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 import requests
 
 from pse_data_scraper.client import PSEClient
-from pse_data_scraper.downloader import fetch_historical_data, write_company_history_csv
+from pse_data_scraper.downloader import (
+    download_historical_data,
+    fetch_historical_data,
+    write_company_history_csv,
+)
 from pse_data_scraper.models import Company, HistoricalPrice
 
 
@@ -161,3 +166,25 @@ def test_fetch_historical_data_with_refresh_ignores_cache(tmp_path: Path):
     # Second call with refresh=True should still make a request (cache ignored)
     fetch_historical_data(client, company, "01-01-2024", "01-31-2024", cache_dir=cache_dir, refresh=True)
     assert client.post.call_count == 2
+
+
+def test_download_historical_data_raises_without_companies_or_csv():
+    client = PSEClient(rate_limit_seconds=0.0)
+    with pytest.raises(ValueError, match="Either 'companies' or 'input_csv'"):
+        download_historical_data(client=client)
+
+
+def test_download_historical_data_prefers_companies_over_csv(tmp_path):
+    """When both companies and input_csv are provided, companies is used."""
+    company = Company(company_id="1", security_id="2", company_name="Test", stock_symbol="TST")
+    client = PSEClient(rate_limit_seconds=0.0)
+
+    with patch("pse_data_scraper.downloader.fetch_historical_data", return_value=[]):
+        # Should not raise even if input_csv doesn't exist — companies takes precedence
+        download_historical_data(
+            client=client,
+            companies=[company],
+            input_csv="/nonexistent/path.csv",
+            output_dir=str(tmp_path / "out"),
+            cache_dir=None,
+        )
