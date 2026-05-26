@@ -15,10 +15,5 @@ env/
 .env
 
 .cache/
-historicaldata*/
-finalstocks*.csv
-combined*.csv
 data/
 pse.toml
-
-data*/

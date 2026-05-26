@@ -16,7 +16,7 @@ def _iter_csv_files(data_folder: Path) -> Iterable[Path]:
     return data_folder.glob("*.csv")
 
 
-def combine_csvs(data_folder: str = "historicaldata", output_file: str = "combined.csv") -> Path:
+def combine_csvs(data_folder: str = "data/history", output_file: str = "data/combined.csv") -> Path:
     input_folder = Path(data_folder)
     output_path = Path(output_file)
     csv_files: List[Path] = sorted(_iter_csv_files(input_folder))

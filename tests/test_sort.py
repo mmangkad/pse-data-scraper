@@ -1,29 +1,9 @@
 from datetime import date
-from unittest.mock import MagicMock
 
-import requests
-
-from pse_data_scraper.client import PSEClient
 from pse_data_scraper.downloader import fetch_historical_data
-from pse_data_scraper.models import Company
 
 
-def _make_company() -> Company:
-    return Company(company_id="1", security_id="2", company_name="Test", stock_symbol="TST")
-
-
-def _mock_client(response_json: dict) -> PSEClient:
-    resp = MagicMock(spec=requests.Response)
-    resp.status_code = 200
-    resp.json.return_value = response_json
-    resp.raise_for_status = MagicMock()
-
-    client = PSEClient(rate_limit_seconds=0.0)
-    client.post = MagicMock(return_value=resp)
-    return client
-
-
-def test_fetch_historical_data_returns_sorted_by_date():
+def test_fetch_historical_data_returns_sorted_by_date(make_company, mock_client):
     data = {
         "chartData": [
             {
@@ -52,8 +32,8 @@ def test_fetch_historical_data_returns_sorted_by_date():
             },
         ]
     }
-    client = _mock_client(data)
-    company = _make_company()
+    client = mock_client(data)
+    company = make_company()
     results = fetch_historical_data(client, company, "01-01-2024", "01-31-2024")
 
     dates = [r.date for r in results]
@@ -61,10 +41,10 @@ def test_fetch_historical_data_returns_sorted_by_date():
     assert dates == [date(2024, 1, 2), date(2024, 1, 10), date(2024, 1, 15)]
 
 
-def test_fetch_historical_data_sorted_with_empty():
+def test_fetch_historical_data_sorted_with_empty(make_company, mock_client):
     """Empty results should not break on sort."""
-    client = _mock_client({"chartData": []})
-    company = _make_company()
+    client = mock_client({"chartData": []})
+    company = make_company()
     results = fetch_historical_data(client, company, "01-01-2024", "01-31-2024")
 
     assert results == []
