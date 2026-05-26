@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, date
+from decimal import Decimal, InvalidOperation
 from typing import Mapping, Optional
 
 
@@ -24,25 +25,25 @@ class Company:
 class HistoricalPrice:
     date: date
     symbol: str
-    value: str
-    open: str
-    close: str
-    high: str
-    low: str
+    value: Decimal
+    open: Decimal
+    close: Decimal
+    high: Decimal
+    low: Decimal
 
     @classmethod
-    def from_api(cls, payload: Mapping[str, str], symbol: str) -> Optional["HistoricalPrice"]:
+    def from_api(cls, payload: Mapping[str, object], symbol: str) -> Optional["HistoricalPrice"]:
         try:
             chart_date = payload["CHART_DATE"]
             parsed_date = datetime.strptime(chart_date, CHART_DATE_FORMAT).date()
             return cls(
                 date=parsed_date,
                 symbol=symbol,
-                value=str(payload["VALUE"]),
-                open=str(payload["OPEN"]),
-                close=str(payload["CLOSE"]),
-                high=str(payload["HIGH"]),
-                low=str(payload["LOW"]),
+                value=Decimal(str(payload["VALUE"])),
+                open=Decimal(str(payload["OPEN"])),
+                close=Decimal(str(payload["CLOSE"])),
+                high=Decimal(str(payload["HIGH"])),
+                low=Decimal(str(payload["LOW"])),
             )
-        except (KeyError, ValueError):
+        except (KeyError, ValueError, InvalidOperation):
             return None
