@@ -24,7 +24,7 @@ def ensure_payload_date(value: Union[str, date, datetime]) -> str:
             return datetime.strptime(text, fmt).strftime(PAYLOAD_DATE_FORMAT)
         except ValueError:
             continue
-    return text
+    raise ValueError(f"Cannot parse date: {text!r} (expected YYYY-MM-DD or MM-DD-YYYY)")
 
 
 def format_output_date(value: date) -> str:
