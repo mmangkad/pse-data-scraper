@@ -162,10 +162,11 @@ def handle_companies(args) -> None:
 def handle_prices(args) -> None:
     cfg = _resolve_config(args)
     client = PSEClient(rate_limit_seconds=cfg.rate_limit)
+    # --refresh applies to price history only; the company directory is
+    # re-scraped by `pse companies --refresh` / `pse sync --refresh`.
     companies = ensure_companies_csv(
         client=client,
         companies_csv=str(cfg.companies_csv),
-        refresh=getattr(args, "refresh", False),
         max_pages=getattr(args, "max_pages", None),
     )
     download_historical_data(
@@ -287,7 +288,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     prices_parser.add_argument("--max-companies", type=int, help="Limit number of companies")
     prices_parser.add_argument("--max-pages", type=int, help="Limit number of company pages")
-    prices_parser.add_argument("--refresh", action="store_true", help="Refresh companies and prices")
+    prices_parser.add_argument(
+        "--refresh", action="store_true", help="Re-download price history even if files exist"
+    )
     prices_parser.set_defaults(func=handle_prices)
 
     export_parser = subparsers.add_parser("export", help="Export combined dataset")

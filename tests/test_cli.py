@@ -76,3 +76,31 @@ def test_cache_flags_log_deprecation_notice(monkeypatch, tmp_path, caplog):
             _run_main(monkeypatch, ["prices", "--cache-dir", str(tmp_path / "c"), "--no-cache"])
 
     assert caplog.text.count("no longer used") == 1
+
+
+def test_prices_refresh_redownloads_prices_without_rescraping_companies(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    save_companies_to_csv(
+        [Company(company_id="1", security_id="2", company_name="Test Corp", stock_symbol="TST")],
+        str(tmp_path / "data" / "companies.csv"),
+    )
+
+    with patch("pse_data_scraper.cli.download_historical_data") as download:
+        _run_main(monkeypatch, ["prices", "--refresh"])
+
+    download.assert_called_once()
+    assert download.call_args.kwargs["refresh"] is True
+    # The company list came from the existing CSV, not a re-scrape.
+    assert [company.stock_symbol for company in download.call_args.kwargs["companies"]] == ["TST"]
+
+
+def test_sync_refresh_refreshes_companies_and_prices(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    with patch("pse_data_scraper.pipeline.ensure_companies_csv") as ensure, patch(
+        "pse_data_scraper.pipeline.download_prices"
+    ) as download, patch("pse_data_scraper.pipeline.export_prices"):
+        _run_main(monkeypatch, ["sync", "--refresh"])
+
+    assert ensure.call_args.kwargs["refresh"] is True
+    assert download.call_args.kwargs["refresh"] is True
