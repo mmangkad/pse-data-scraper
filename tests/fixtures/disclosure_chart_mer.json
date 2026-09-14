@@ -1,0 +1,226 @@
+{
+  "chartData": [
+    {
+      "OPEN": 474.0,
+      "VALUE": 413592336.0,
+      "CLOSE": 487.0,
+      "CHART_DATE": "Aug 03, 2026 00:00:00",
+      "HIGH": 490.0,
+      "LOW": 451.2
+    },
+    {
+      "OPEN": 491.0,
+      "VALUE": 178580084.0,
+      "CLOSE": 485.0,
+      "CHART_DATE": "Aug 04, 2026 00:00:00",
+      "HIGH": 502.0,
+      "LOW": 482.0
+    },
+    {
+      "OPEN": 490.0,
+      "VALUE": 137943532.0,
+      "CLOSE": 482.0,
+      "CHART_DATE": "Aug 05, 2026 00:00:00",
+      "HIGH": 490.2,
+      "LOW": 482.0
+    },
+    {
+      "OPEN": 488.0,
+      "VALUE": 105572726.0,
+      "CLOSE": 495.6,
+      "CHART_DATE": "Aug 06, 2026 00:00:00",
+      "HIGH": 495.6,
+      "LOW": 480.4
+    },
+    {
+      "OPEN": 492.4,
+      "VALUE": 120592152.0,
+      "CLOSE": 494.0,
+      "CHART_DATE": "Aug 07, 2026 00:00:00",
+      "HIGH": 494.0,
+      "LOW": 485.0
+    },
+    {
+      "OPEN": 494.0,
+      "VALUE": 64556860.0,
+      "CLOSE": 489.6,
+      "CHART_DATE": "Aug 10, 2026 00:00:00",
+      "HIGH": 494.8,
+      "LOW": 488.6
+    },
+    {
+      "OPEN": 492.2,
+      "VALUE": 246724680.0,
+      "CLOSE": 483.4,
+      "CHART_DATE": "Aug 11, 2026 00:00:00",
+      "HIGH": 496.0,
+      "LOW": 483.4
+    },
+    {
+      "OPEN": 486.0,
+      "VALUE": 123691714.0,
+      "CLOSE": 488.0,
+      "CHART_DATE": "Aug 12, 2026 00:00:00",
+      "HIGH": 496.0,
+      "LOW": 480.0
+    },
+    {
+      "OPEN": 493.0,
+      "VALUE": 87017232.0,
+      "CLOSE": 491.6,
+      "CHART_DATE": "Aug 13, 2026 00:00:00",
+      "HIGH": 493.6,
+      "LOW": 485.2
+    },
+    {
+      "OPEN": 492.2,
+      "VALUE": 72526006.0,
+      "CLOSE": 490.0,
+      "CHART_DATE": "Aug 14, 2026 00:00:00",
+      "HIGH": 493.8,
+      "LOW": 489.0
+    },
+    {
+      "OPEN": 490.8,
+      "VALUE": 99301245.0,
+      "CLOSE": 500.0,
+      "CHART_DATE": "Aug 17, 2026 00:00:00",
+      "HIGH": 504.0,
+      "LOW": 488.0
+    },
+    {
+      "OPEN": 505.0,
+      "VALUE": 115731222.0,
+      "CLOSE": 502.5,
+      "CHART_DATE": "Aug 18, 2026 00:00:00",
+      "HIGH": 507.0,
+      "LOW": 495.0
+    },
+    {
+      "OPEN": 502.5,
+      "VALUE": 107282988.0,
+      "CLOSE": 489.2,
+      "CHART_DATE": "Aug 19, 2026 00:00:00",
+      "HIGH": 502.5,
+      "LOW": 488.0
+    },
+    {
+      "OPEN": 490.0,
+      "VALUE": 256351106.0,
+      "CLOSE": 482.0,
+      "CHART_DATE": "Aug 20, 2026 00:00:00",
+      "HIGH": 495.0,
+      "LOW": 481.4
+    },
+    {
+      "OPEN": 487.0,
+      "VALUE": 232452152.0,
+      "CLOSE": 479.0,
+      "CHART_DATE": "Aug 24, 2026 00:00:00",
+      "HIGH": 489.0,
+      "LOW": 465.6
+    },
+    {
+      "OPEN": 479.0,
+      "VALUE": 90914152.0,
+      "CLOSE": 479.0,
+      "CHART_DATE": "Aug 25, 2026 00:00:00",
+      "HIGH": 480.0,
+      "LOW": 473.6
+    },
+    {
+      "OPEN": 480.0,
+      "VALUE": 139226800.0,
+      "CLOSE": 482.0,
+      "CHART_DATE": "Aug 26, 2026 00:00:00",
+      "HIGH": 484.6,
+      "LOW": 479.0
+    },
+    {
+      "OPEN": 475.8,
+      "VALUE": 139271504.0,
+      "CLOSE": 470.0,
+      "CHART_DATE": "Aug 27, 2026 00:00:00",
+      "HIGH": 475.8,
+      "LOW": 467.2
+    },
+    {
+      "OPEN": 470.0,
+      "VALUE": 241680096.0,
+      "CLOSE": 460.0,
+      "CHART_DATE": "Aug 28, 2026 00:00:00",
+      "HIGH": 470.0,
+      "LOW": 454.0
+    }
+  ],
+  "tableData": [
+    {
+      "SM_DM": "Aug 28, 2026 03:51 PM",
+      "SUBJECT_TITLE": "Statement of Changes in Beneficial Ownership of Securities"
+    },
+    {
+      "SM_DM": "Aug 27, 2026 03:45 PM",
+      "SUBJECT_TITLE": "Statement of Changes in Beneficial Ownership of Securities"
+    },
+    {
+      "SM_DM": "Aug 25, 2026 03:59 PM",
+      "SUBJECT_TITLE": "Statement of Changes in Beneficial Ownership of Securities"
+    },
+    {
+      "SM_DM": "Aug 25, 2026 03:36 PM",
+      "SUBJECT_TITLE": "Change in Shareholdings of Directors and Principal Officers"
+    },
+    {
+      "SM_DM": "Aug 25, 2026 03:30 PM",
+      "SUBJECT_TITLE": "Change in Shareholdings of Directors and Principal Officers"
+    },
+    {
+      "SM_DM": "Aug 14, 2026 04:23 PM",
+      "SUBJECT_TITLE": "Quarterly Report"
+    },
+    {
+      "SM_DM": "Aug 12, 2026 12:01 PM",
+      "SUBJECT_TITLE": "Statement of Changes in Beneficial Ownership of Securities"
+    },
+    {
+      "SM_DM": "Aug 12, 2026 10:26 AM",
+      "SUBJECT_TITLE": "Statement of Changes in Beneficial Ownership of Securities"
+    },
+    {
+      "SM_DM": "Aug 10, 2026 02:36 PM",
+      "SUBJECT_TITLE": "Statement of Changes in Beneficial Ownership of Securities"
+    },
+    {
+      "SM_DM": "Aug 10, 2026 08:07 AM",
+      "SUBJECT_TITLE": "Change in Shareholdings of Directors and Principal Officers"
+    },
+    {
+      "SM_DM": "Aug 10, 2026 06:37 AM",
+      "SUBJECT_TITLE": "Change in Shareholdings of Directors and Principal Officers"
+    },
+    {
+      "SM_DM": "Aug 10, 2026 06:37 AM",
+      "SUBJECT_TITLE": "Change in Shareholdings of Directors and Principal Officers"
+    },
+    {
+      "SM_DM": "Aug 10, 2026 06:34 AM",
+      "SUBJECT_TITLE": "Change in Shareholdings of Directors and Principal Officers"
+    },
+    {
+      "SM_DM": "Aug 10, 2026 06:34 AM",
+      "SUBJECT_TITLE": "Change in Shareholdings of Directors and Principal Officers"
+    },
+    {
+      "SM_DM": "Aug 10, 2026 06:33 AM",
+      "SUBJECT_TITLE": "Change in Shareholdings of Directors and Principal Officers"
+    },
+    {
+      "SM_DM": "Aug 10, 2026 06:33 AM",
+      "SUBJECT_TITLE": "Change in Shareholdings of Directors and Principal Officers"
+    },
+    {
+      "SM_DM": "Aug 07, 2026 01:22 PM",
+      "SUBJECT_TITLE": "Statement of Changes in Beneficial Ownership of Securities"
+    }
+  ]
+}

@@ -1,7 +1,31 @@
 from datetime import date
 from decimal import Decimal
 
-from pse_data_scraper.models import HistoricalPrice
+from pse_data_scraper.models import Company, HistoricalPrice
+
+
+def test_company_metadata_fields_default_off():
+    company = Company(company_id="1", security_id="2", company_name="Test Corp", stock_symbol="TST")
+
+    assert company.sector == ""
+    assert company.subsector == ""
+    assert company.listing_date is None
+
+
+def test_company_holds_metadata():
+    company = Company(
+        company_id="1",
+        security_id="2",
+        company_name="Test Corp",
+        stock_symbol="TST",
+        sector="Services",
+        subsector="Media",
+        listing_date=date(1992, 7, 8),
+    )
+
+    assert company.sector == "Services"
+    assert company.subsector == "Media"
+    assert company.listing_date == date(1992, 7, 8)
 
 
 def test_from_api_parses_numeric_fields_as_decimal():

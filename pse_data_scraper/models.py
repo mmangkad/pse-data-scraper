@@ -19,6 +19,9 @@ class Company:
     security_id: str
     company_name: str
     stock_symbol: str
+    sector: str = ""  # e.g. "Holding Firms"
+    subsector: str = ""  # e.g. "Holding Firms"
+    listing_date: Optional[date] = None  # e.g. date(1973, 3, 22)
 
 
 @dataclass(frozen=True)
