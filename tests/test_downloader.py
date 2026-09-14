@@ -1,5 +1,6 @@
 import csv
 import json
+import logging
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -79,7 +80,10 @@ def test_fetch_historical_data_parses_chart_data(make_company, mock_client):
     assert results[0].date == date(2024, 1, 2)
 
 
-def test_fetch_historical_data_caches_nonempty_response(tmp_path: Path, make_company, mock_client):
+def test_fetch_historical_data_ignores_cache_dir_with_deprecation_notice(
+    tmp_path: Path, make_company, mock_client, caplog, monkeypatch
+):
+    monkeypatch.setattr("pse_data_scraper.utils._cache_deprecation_logged", False)
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
     data = {
@@ -96,25 +100,15 @@ def test_fetch_historical_data_caches_nonempty_response(tmp_path: Path, make_com
     }
     client = mock_client(data)
     company = make_company()
-    fetch_historical_data(client, company, "01-01-2024", "01-31-2024", cache_dir=cache_dir)
 
-    cache_files = list(cache_dir.glob("*.json"))
-    assert len(cache_files) == 1
-    with cache_files[0].open() as f:
-        assert json.load(f) == data
+    with caplog.at_level(logging.WARNING):
+        first = fetch_historical_data(client, company, "01-01-2024", "01-31-2024", cache_dir=cache_dir)
+        second = fetch_historical_data(client, company, "01-01-2024", "01-31-2024", cache_dir=cache_dir)
 
-
-def test_fetch_historical_data_does_not_cache_empty_response(tmp_path: Path, make_company, mock_client):
-    cache_dir = tmp_path / "cache"
-    cache_dir.mkdir()
-    data = {"chartData": []}
-
-    client = mock_client(data)
-    company = make_company()
-    fetch_historical_data(client, company, "01-01-2024", "01-31-2024", cache_dir=cache_dir)
-
-    cache_files = list(cache_dir.glob("*.json"))
-    assert len(cache_files) == 0
+    assert len(first) == 1
+    assert second == first
+    assert list(cache_dir.glob("*.json")) == []
+    assert caplog.text.count("no longer used") == 1
 
 
 def test_fetch_historical_data_skips_malformed_records(make_company, mock_client):
@@ -130,33 +124,6 @@ def test_fetch_historical_data_skips_malformed_records(make_company, mock_client
 
     assert len(results) == 1
     assert results[0].date == date(2024, 1, 2)
-
-
-def test_fetch_historical_data_with_refresh_ignores_cache(tmp_path: Path, make_company, mock_client):
-    cache_dir = tmp_path / "cache"
-    cache_dir.mkdir()
-    data = {
-        "chartData": [
-            {
-                "CHART_DATE": "Jan 02, 2024 00:00:00",
-                "VALUE": 100.0,
-                "OPEN": 10.0,
-                "CLOSE": 11.0,
-                "HIGH": 12.0,
-                "LOW": 9.0,
-            }
-        ]
-    }
-    client = mock_client(data)
-    company = make_company()
-
-    # First call writes cache
-    fetch_historical_data(client, company, "01-01-2024", "01-31-2024", cache_dir=cache_dir)
-    assert len(list(cache_dir.glob("*.json"))) == 1
-
-    # Second call with refresh=True should still make a request (cache ignored)
-    fetch_historical_data(client, company, "01-01-2024", "01-31-2024", cache_dir=cache_dir, refresh=True)
-    assert client.post.call_count == 2
 
 
 def test_fetch_historical_data_parses_captured_mer_response(make_company, mock_client):

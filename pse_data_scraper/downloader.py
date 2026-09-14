@@ -5,7 +5,6 @@ Download historical stock data from PSE EDGE.
 from __future__ import annotations
 
 import csv
-import json
 import logging
 import os
 from collections import Counter
@@ -22,6 +21,7 @@ from pse_data_scraper.utils import (
     OUTPUT_DATE_FORMAT,
     ensure_payload_date,
     format_output_date,
+    log_cache_deprecation_once,
     sanitize_filename,
 )
 from pse_data_scraper.scraper import load_companies_from_csv
@@ -45,29 +45,6 @@ def _build_history_payload(
     }
 
 
-def _cache_key(company: Company, start_date: str, end_date: str) -> str:
-    return f"{company.company_id}_{company.security_id}_{start_date}_{end_date}.json"
-
-
-def _load_cached_json(cache_path: Path) -> Optional[dict]:
-    if not cache_path.exists():
-        return None
-    try:
-        with cache_path.open("r", encoding="utf-8") as handle:
-            return json.load(handle)
-    except (OSError, json.JSONDecodeError):
-        return None
-
-
-def _save_cached_json(cache_path: Path, payload: dict) -> None:
-    try:
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        with cache_path.open("w", encoding="utf-8") as handle:
-            json.dump(payload, handle)
-    except OSError:
-        logger.warning("Failed to write cache file: %s", cache_path)
-
-
 def fetch_historical_data(
     client: PSEClient,
     company: Company,
@@ -76,30 +53,28 @@ def fetch_historical_data(
     cache_dir: Optional[Path] = None,
     refresh: bool = False,
 ) -> List[HistoricalPrice]:
-    cache_payload: Optional[dict] = None
-    cache_path: Optional[Path] = None
+    """Fetch daily OHLC rows for one company.
 
+    ``cache_dir`` and ``refresh`` are deprecated no-ops kept for one release
+    so documented API callers keep working; per-company CSVs are the source
+    of truth now.
+    """
     if cache_dir is not None:
-        cache_path = cache_dir / _cache_key(company, start_date, end_date)
-        if not refresh:
-            cache_payload = _load_cached_json(cache_path)
+        log_cache_deprecation_once()
 
-    if cache_payload is None:
-        payload = _build_history_payload(company, start_date, end_date)
-        response = client.post(
-            HISTORICAL_DATA_URL,
-            json=payload,
-            headers={
-                "Referer": HISTORICAL_DATA_REFERER,
-                "X-Requested-With": "XMLHttpRequest",
-            },
-        )
-        response.raise_for_status()
-        cache_payload = response.json()
-        if cache_path is not None and cache_payload.get("chartData"):
-            _save_cached_json(cache_path, cache_payload)
+    payload = _build_history_payload(company, start_date, end_date)
+    response = client.post(
+        HISTORICAL_DATA_URL,
+        json=payload,
+        headers={
+            "Referer": HISTORICAL_DATA_REFERER,
+            "X-Requested-With": "XMLHttpRequest",
+        },
+    )
+    response.raise_for_status()
+    response_payload = response.json()
 
-    chart_data = cache_payload.get("chartData", [])
+    chart_data = response_payload.get("chartData", [])
     results: List[HistoricalPrice] = []
     for item in chart_data:
         parsed = HistoricalPrice.from_api(item, company.stock_symbol)

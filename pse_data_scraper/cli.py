@@ -18,6 +18,7 @@ from pse_data_scraper.downloader import download_historical_data
 from pse_data_scraper.pipeline import ensure_companies_csv, export_prices, sync_data
 from pse_data_scraper.scraper import ScrapeIncompleteError
 from pse_data_scraper.status import collect_status
+from pse_data_scraper.utils import log_cache_deprecation_once
 
 
 def _parse_symbols(value: Optional[str]) -> Optional[List[str]]:
@@ -74,9 +75,11 @@ def _apply_overrides(config, args):
     cache_dir = getattr(args, "cache_dir", None)
     if cache_dir:
         cfg.cache_dir = Path(cache_dir)
+        log_cache_deprecation_once()
 
     if getattr(args, "no_cache", False):
         cfg.cache_dir = None
+        log_cache_deprecation_once()
 
     rate_limit = getattr(args, "rate_limit", None)
     if rate_limit is not None:

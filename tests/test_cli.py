@@ -1,3 +1,4 @@
+import logging
 import sys
 from datetime import date
 from unittest.mock import patch
@@ -6,7 +7,7 @@ import pytest
 
 from pse_data_scraper.cli import main
 from pse_data_scraper.models import Company
-from pse_data_scraper.scraper import ScrapeIncompleteError
+from pse_data_scraper.scraper import ScrapeIncompleteError, save_companies_to_csv
 
 
 def _run_main(monkeypatch, argv):
@@ -60,3 +61,18 @@ def test_companies_refresh_scrapes_and_lists(monkeypatch, tmp_path, capsys):
     content = companies_csv.read_text(encoding="utf-8")
     assert "sector,subsector,listingDate" in content
     assert "Holding Firms,Holding Firms,1973-03-22" in content
+
+
+def test_cache_flags_log_deprecation_notice(monkeypatch, tmp_path, caplog):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("pse_data_scraper.utils._cache_deprecation_logged", False)
+    save_companies_to_csv(
+        [Company(company_id="1", security_id="2", company_name="Test Corp", stock_symbol="TST")],
+        str(tmp_path / "data" / "companies.csv"),
+    )
+
+    with patch("pse_data_scraper.cli.download_historical_data"):
+        with caplog.at_level(logging.WARNING):
+            _run_main(monkeypatch, ["prices", "--cache-dir", str(tmp_path / "c"), "--no-cache"])
+
+    assert caplog.text.count("no longer used") == 1
