@@ -147,8 +147,9 @@ def sync_data(
     max_pages: Optional[int] = None,
     keyword: Optional[str] = None,
     sector: Optional[str] = None,
+    timeout_seconds: int = 30,
 ) -> None:
-    client = PSEClient(rate_limit_seconds=rate_limit_seconds)
+    client = PSEClient(rate_limit_seconds=rate_limit_seconds, timeout_seconds=timeout_seconds)
 
     logger.info("Step 1: Preparing company list...")
     companies = ensure_companies_csv(

@@ -53,6 +53,8 @@ pse status --json
 Common options:
 
 - `--rate-limit` sets the delay between requests.
+- `--timeout` sets the per-request timeout in seconds (default 30; also
+  `timeout` under `[network]` in `pse.toml`).
 - `--symbols` limits downloads to specific tickers. Symbols missing from the
   directory warn (EDGE lists primary securities only — no preferreds,
   warrants, or delisted names); if none match, the command exits 1.
@@ -87,6 +89,7 @@ data_dir = "data"
 
 [network]
 rate_limit = 0.6
+# timeout = 30
 
 [download]
 start_date = "2020-01-01"

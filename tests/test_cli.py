@@ -136,6 +136,29 @@ def test_sector_and_keyword_flags_reach_company_scrape(monkeypatch, tmp_path):
     assert ensure.call_args.kwargs["keyword"] == "Ayala"
 
 
+def test_timeout_flag_reaches_client(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    with patch("pse_data_scraper.cli.PSEClient") as client_cls, patch(
+        "pse_data_scraper.cli.ensure_companies_csv"
+    ):
+        _run_main(monkeypatch, ["companies", "--timeout", "5"])
+
+    assert client_cls.call_args.kwargs["timeout_seconds"] == 5
+
+
+def test_timeout_from_config_reaches_client(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pse.toml").write_text("[network]\ntimeout = 12\n", encoding="utf-8")
+
+    with patch("pse_data_scraper.cli.PSEClient") as client_cls, patch(
+        "pse_data_scraper.cli.ensure_companies_csv"
+    ):
+        _run_main(monkeypatch, ["companies"])
+
+    assert client_cls.call_args.kwargs["timeout_seconds"] == 12
+
+
 def test_prices_sector_filters_existing_company_list(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     save_companies_to_csv(

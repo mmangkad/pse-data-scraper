@@ -43,6 +43,33 @@ keyword = "Ayala"
     assert config.keyword == "Ayala"
 
 
+def test_load_config_reads_network_timeout(tmp_path):
+    config_text = """
+[network]
+rate_limit = 0.6
+timeout = 10
+"""
+    config_path = tmp_path / "pse.toml"
+    config_path.write_text(config_text, encoding="utf-8")
+
+    config = load_config(str(config_path))
+
+    assert config.timeout_seconds == 10
+
+
+def test_load_config_timeout_defaults_to_30(tmp_path):
+    config_text = """
+[network]
+rate_limit = 0.6
+"""
+    config_path = tmp_path / "pse.toml"
+    config_path.write_text(config_text, encoding="utf-8")
+
+    config = load_config(str(config_path))
+
+    assert config.timeout_seconds == 30
+
+
 def test_load_config_cache_dir_is_deprecated_but_parsed(tmp_path, caplog, monkeypatch):
     monkeypatch.setattr("pse_data_scraper.utils._cache_deprecation_logged", False)
     config_text = """

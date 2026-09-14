@@ -80,6 +80,7 @@ class Config:
     combined_csv: Optional[Path] = None
     cache_dir: Optional[Path] = Path(DEFAULT_CACHE_DIR)
     rate_limit: float = 0.6
+    timeout_seconds: int = 30
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     symbols: List[str] = field(default_factory=list)
@@ -153,6 +154,10 @@ def load_config(path: Optional[str] = None) -> Config:
     rate_limit = network.get("rate_limit", data.get("rate_limit"))
     if rate_limit is not None:
         config.rate_limit = float(rate_limit)
+
+    timeout = _normalize_positive_int(network.get("timeout"))
+    if timeout is not None:
+        config.timeout_seconds = timeout
 
     if "start_date" in download:
         config.start_date = str(download["start_date"])

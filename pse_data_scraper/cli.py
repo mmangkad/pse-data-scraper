@@ -86,6 +86,10 @@ def _apply_overrides(config, args):
     if rate_limit is not None:
         cfg.rate_limit = rate_limit
 
+    timeout = getattr(args, "timeout", None)
+    if timeout is not None and timeout > 0:
+        cfg.timeout_seconds = timeout
+
     start_date = getattr(args, "start_date", None)
     if start_date:
         cfg.start_date = start_date
@@ -158,7 +162,7 @@ def handle_init(args) -> None:
 
 def handle_companies(args) -> None:
     cfg = _resolve_config(args)
-    client = PSEClient(rate_limit_seconds=cfg.rate_limit)
+    client = PSEClient(rate_limit_seconds=cfg.rate_limit, timeout_seconds=cfg.timeout_seconds)
     companies = ensure_companies_csv(
         client=client,
         companies_csv=str(cfg.companies_csv),
@@ -174,7 +178,7 @@ def handle_companies(args) -> None:
 
 def handle_prices(args) -> None:
     cfg = _resolve_config(args)
-    client = PSEClient(rate_limit_seconds=cfg.rate_limit)
+    client = PSEClient(rate_limit_seconds=cfg.rate_limit, timeout_seconds=cfg.timeout_seconds)
     # --refresh applies to price history only; the company directory is
     # re-scraped by `pse companies --refresh` / `pse sync --refresh`.
     companies = ensure_companies_csv(
@@ -221,6 +225,7 @@ def handle_sync(args) -> None:
         max_pages=getattr(args, "max_pages", None),
         keyword=cfg.keyword,
         sector=cfg.sector,
+        timeout_seconds=cfg.timeout_seconds,
     )
 
 
@@ -268,6 +273,7 @@ def build_parser() -> argparse.ArgumentParser:
     sync_parser.add_argument("--cache-dir", help="Cache folder")
     sync_parser.add_argument("--no-cache", action="store_true", help="Disable caching")
     sync_parser.add_argument("--rate-limit", type=float, help="Seconds between requests")
+    sync_parser.add_argument("--timeout", type=int, help="Request timeout in seconds")
     sync_parser.add_argument("--symbols", help="Comma-separated stock symbols to download")
     sync_parser.add_argument(
         "--from",
@@ -292,6 +298,7 @@ def build_parser() -> argparse.ArgumentParser:
     companies_parser.add_argument("--data-dir", help="Root data directory")
     companies_parser.add_argument("--companies", "--output", dest="companies", help="Companies CSV path")
     companies_parser.add_argument("--rate-limit", type=float, help="Seconds between requests")
+    companies_parser.add_argument("--timeout", type=int, help="Request timeout in seconds")
     companies_parser.add_argument("--max-pages", type=int, help="Limit number of pages")
     companies_parser.add_argument("--sector", help=SECTOR_HELP)
     companies_parser.add_argument("--keyword", help=KEYWORD_HELP)
@@ -308,6 +315,7 @@ def build_parser() -> argparse.ArgumentParser:
     prices_parser.add_argument("--cache-dir", help="Cache folder")
     prices_parser.add_argument("--no-cache", action="store_true", help="Disable caching")
     prices_parser.add_argument("--rate-limit", type=float, help="Seconds between requests")
+    prices_parser.add_argument("--timeout", type=int, help="Request timeout in seconds")
     prices_parser.add_argument("--symbols", help="Comma-separated stock symbols to download")
     prices_parser.add_argument(
         "--from",
