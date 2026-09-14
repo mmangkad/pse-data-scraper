@@ -1,4 +1,5 @@
 import csv
+import logging
 from pathlib import Path
 
 from pse_data_scraper.combiner import combine_csvs
@@ -36,7 +37,7 @@ def test_combine_reads_company_from_csv(tmp_path: Path):
     assert rows[0]["Company"] == "BDO Unibank, Inc."
 
 
-def test_combine_multiple_files(tmp_path: Path):
+def test_combine_multiple_files(tmp_path: Path, caplog):
     input_dir = tmp_path / "history"
     input_dir.mkdir()
     _write_csv(
@@ -51,12 +52,14 @@ def test_combine_multiple_files(tmp_path: Path):
     )
 
     output = tmp_path / "combined.csv"
-    combine_csvs(str(input_dir), str(output))
+    with caplog.at_level(logging.INFO):
+        combine_csvs(str(input_dir), str(output))
 
     rows = _read_combined(output)
     assert len(rows) == 2
     assert rows[0]["Symbol"] == "AC"
     assert rows[1]["Symbol"] == "BDO"
+    assert "Combined 2 rows from 2 files into" in caplog.text
 
 
 def test_combine_skips_files_without_symbol_column(tmp_path: Path):

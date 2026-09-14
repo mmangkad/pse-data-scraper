@@ -8,10 +8,11 @@ import csv
 import logging
 import os
 from collections import Counter
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence
+from typing import Dict, Iterable, List, Mapping, Optional, Sequence
 
 import requests
 
@@ -34,6 +35,27 @@ HISTORICAL_DATA_REFERER = "https://edge.pse.com.ph/companyPage/stockData.do"
 
 class CorruptHistoryError(ValueError):
     """Raised when a history CSV has malformed rows and needs a full re-fetch."""
+
+
+@dataclass
+class SyncReport:
+    """Outcome of a download run: written files plus per-status company counts."""
+
+    saved_paths: List[Path] = field(default_factory=list)
+    status_counts: Counter = field(default_factory=Counter)
+
+
+def format_run_summary(counts: Mapping[str, int]) -> str:
+    """Render per-status counts as the one-line end-of-run summary."""
+    failed = counts.get("failed", 0)
+    failed_text = f"{failed} failed (see warnings above)" if failed else "0 failed"
+    return (
+        f"Done: {counts.get('up_to_date', 0)} up-to-date, "
+        f"{counts.get('saved_incremental', 0)} updated, "
+        f"{counts.get('saved_full', 0)} saved new, "
+        f"{failed_text}, "
+        f"{counts.get('no_data', 0)} no-data"
+    )
 
 
 def _build_history_payload(
@@ -196,7 +218,7 @@ def download_historical_data(
     max_companies: Optional[int] = None,
     cache_dir: Optional[str] = ".cache",
     refresh: bool = False,
-) -> List[Path]:
+) -> SyncReport:
     if companies is None and input_csv is None:
         raise ValueError("Either 'companies' or 'input_csv' must be provided")
     if companies is None:
@@ -210,7 +232,7 @@ def download_historical_data(
 
     saved_paths: List[Path] = []
     # Per-company outcomes (saved_full / saved_incremental / up_to_date /
-    # no_data / failed), surfaced by future run summaries.
+    # no_data / failed), surfaced by the run summary and the SyncReport.
     status_counts: Counter = Counter()
     processed = 0
 
@@ -285,5 +307,5 @@ def download_historical_data(
             status_counts["failed"] += 1
             logger.warning("Unexpected payload for %s: %s", company.company_name, exc)
 
-    logger.debug("Download tally: %s", dict(status_counts))
-    return saved_paths
+    logger.info("%s", format_run_summary(status_counts))
+    return SyncReport(saved_paths=saved_paths, status_counts=status_counts)
