@@ -31,6 +31,22 @@ def _existing_company_count(path: Path) -> Optional[int]:
         return None
 
 
+def _filter_companies_locally(
+    companies: List[Company],
+    keyword: Optional[str],
+    sector: Optional[str],
+) -> List[Company]:
+    """Apply directory filters client-side, mirroring the server's semantics."""
+    filtered = companies
+    if sector:
+        wanted = sector.strip().lower()
+        filtered = [company for company in filtered if company.sector.strip().lower() == wanted]
+    if keyword:
+        needle = keyword.strip().lower()
+        filtered = [company for company in filtered if needle in company.company_name.lower()]
+    return filtered
+
+
 def ensure_companies_csv(
     client: PSEClient,
     companies_csv: str,
@@ -42,7 +58,24 @@ def ensure_companies_csv(
     path = Path(companies_csv)
     if path.exists() and not refresh:
         logger.info("Using existing company list: %s", path)
-        return load_companies_from_csv(str(path))
+        companies = load_companies_from_csv(str(path))
+        if keyword or sector:
+            total = len(companies)
+            companies = _filter_companies_locally(companies, keyword=keyword, sector=sector)
+            if companies:
+                logger.info(
+                    "Filtered existing company list by sector/keyword: %s of %s companies",
+                    len(companies),
+                    total,
+                )
+            else:
+                logger.warning(
+                    "No companies in %s match sector=%r keyword=%r",
+                    path,
+                    sector,
+                    keyword,
+                )
+        return companies
 
     logger.info("Scraping company list...")
     try:

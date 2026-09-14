@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from unittest.mock import MagicMock, patch
 
@@ -33,6 +34,123 @@ def test_ensure_companies_csv_uses_existing_without_refresh(tmp_path):
 
     assert [company.stock_symbol for company in result] == ["AAA", "BDO"]
     client.get.assert_not_called()
+
+
+def test_ensure_companies_csv_filters_existing_list_by_sector(tmp_path):
+    companies_csv = tmp_path / "companies.csv"
+    companies = [
+        Company(
+            company_id="1",
+            security_id="2",
+            company_name="Ayala Corporation",
+            stock_symbol="AC",
+            sector="Holding Firms",
+        ),
+        Company(
+            company_id="3",
+            security_id="4",
+            company_name="BDO Unibank, Inc.",
+            stock_symbol="BDO",
+            sector="Financials",
+        ),
+        Company(
+            company_id="5",
+            security_id="6",
+            company_name="Another Bank",
+            stock_symbol="AB",
+            sector="financials",
+        ),
+    ]
+    _write_companies_csv(companies_csv, companies)
+    before = companies_csv.read_text(encoding="utf-8")
+
+    client = PSEClient(rate_limit_seconds=0.0)
+    client.get = MagicMock()
+
+    result = ensure_companies_csv(client, str(companies_csv), sector="Financials")
+
+    assert [company.stock_symbol for company in result] == ["BDO", "AB"]
+    client.get.assert_not_called()
+    # The file itself is untouched; filtering is local to the run.
+    assert companies_csv.read_text(encoding="utf-8") == before
+
+
+def test_ensure_companies_csv_filters_existing_list_by_keyword(tmp_path):
+    companies_csv = tmp_path / "companies.csv"
+    companies = [
+        Company(
+            company_id="1",
+            security_id="2",
+            company_name="Ayala Corporation",
+            stock_symbol="AC",
+            sector="Holding Firms",
+        ),
+        Company(
+            company_id="3",
+            security_id="4",
+            company_name="BDO Unibank, Inc.",
+            stock_symbol="BDO",
+            sector="Financials",
+        ),
+    ]
+    _write_companies_csv(companies_csv, companies)
+
+    client = PSEClient(rate_limit_seconds=0.0)
+    client.get = MagicMock()
+
+    result = ensure_companies_csv(client, str(companies_csv), keyword="unibank")
+
+    assert [company.stock_symbol for company in result] == ["BDO"]
+    client.get.assert_not_called()
+
+
+def test_ensure_companies_csv_filters_existing_list_by_sector_and_keyword(tmp_path):
+    companies_csv = tmp_path / "companies.csv"
+    companies = [
+        Company(
+            company_id="1",
+            security_id="2",
+            company_name="Ayala Corporation",
+            stock_symbol="AC",
+            sector="Holding Firms",
+        ),
+        Company(
+            company_id="3",
+            security_id="4",
+            company_name="BDO Unibank, Inc.",
+            stock_symbol="BDO",
+            sector="Financials",
+        ),
+        Company(
+            company_id="5",
+            security_id="6",
+            company_name="Asia United Bank",
+            stock_symbol="AUB",
+            sector="Financials",
+        ),
+    ]
+    _write_companies_csv(companies_csv, companies)
+
+    client = PSEClient(rate_limit_seconds=0.0)
+    client.get = MagicMock()
+
+    result = ensure_companies_csv(client, str(companies_csv), sector="Financials", keyword="united")
+
+    assert [company.stock_symbol for company in result] == ["AUB"]
+
+
+def test_ensure_companies_csv_warns_when_filters_match_nothing(tmp_path, caplog):
+    companies_csv = tmp_path / "companies.csv"
+    _write_companies_csv(companies_csv, [_make_company("AAA")])
+
+    client = PSEClient(rate_limit_seconds=0.0)
+    client.get = MagicMock()
+
+    with caplog.at_level(logging.WARNING):
+        result = ensure_companies_csv(client, str(companies_csv), sector="Financials")
+
+    assert result == []
+    assert "No companies in" in caplog.text and "match" in caplog.text
 
 
 def test_ensure_companies_csv_scrapes_and_saves_when_missing(tmp_path):

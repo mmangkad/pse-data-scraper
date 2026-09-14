@@ -136,6 +136,35 @@ def test_sector_and_keyword_flags_reach_company_scrape(monkeypatch, tmp_path):
     assert ensure.call_args.kwargs["keyword"] == "Ayala"
 
 
+def test_prices_sector_filters_existing_company_list(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    save_companies_to_csv(
+        [
+            Company(
+                company_id="1",
+                security_id="2",
+                company_name="Ayala Corporation",
+                stock_symbol="AC",
+                sector="Holding Firms",
+            ),
+            Company(
+                company_id="3",
+                security_id="4",
+                company_name="BDO Unibank, Inc.",
+                stock_symbol="BDO",
+                sector="Financials",
+            ),
+        ],
+        str(tmp_path / "data" / "companies.csv"),
+    )
+
+    with patch("pse_data_scraper.cli.download_historical_data") as download:
+        _run_main(monkeypatch, ["prices", "--sector", "Financials"])
+
+    downloaded = download.call_args.kwargs["companies"]
+    assert [company.stock_symbol for company in downloaded] == ["BDO"]
+
+
 def test_sector_and_keyword_from_config_reach_company_scrape(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "pse.toml").write_text(
