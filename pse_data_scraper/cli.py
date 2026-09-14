@@ -16,6 +16,7 @@ from pse_data_scraper.client import PSEClient
 from pse_data_scraper.config import DEFAULT_CONFIG_NAME, load_config, write_default_config
 from pse_data_scraper.downloader import download_historical_data
 from pse_data_scraper.pipeline import ensure_companies_csv, export_prices, sync_data
+from pse_data_scraper.scraper import ScrapeIncompleteError
 from pse_data_scraper.status import collect_status
 
 
@@ -307,7 +308,11 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
     _setup_logging(args.verbose, args.quiet)
-    args.func(args)
+    try:
+        args.func(args)
+    except ScrapeIncompleteError as exc:
+        logging.error("%s", exc)
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

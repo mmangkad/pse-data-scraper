@@ -1,15 +1,19 @@
 import csv
+import logging
 from datetime import date
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
 import requests
 
 from pse_data_scraper.client import PSEClient
 from pse_data_scraper.models import Company
 from pse_data_scraper.scraper import (
+    ScrapeIncompleteError,
     load_companies_from_csv,
     parse_companies_from_html,
+    parse_page_meta,
     save_companies_to_csv,
     scrape_companies,
 )
@@ -51,6 +55,13 @@ def _row(company_id: str, security_id: str, name: str, symbol: str) -> str:
 
 def _table(rows_html: str) -> str:
     return f'<table class="list"><tbody>\n{rows_html}\n</tbody></table>'
+
+
+def _directory_page(rows_html: str, current: int, total_pages: int, total_rows: int) -> str:
+    return (
+        f'<span class="count"> [{current} / {total_pages}] [Total {total_rows}] </span>\n'
+        + _table(rows_html)
+    )
 
 
 def _mock_response(text: str, status_code: int = 200) -> MagicMock:
@@ -117,6 +128,28 @@ def test_parse_real_directory_page_fixture():
     assert all(company.listing_date is not None for company in companies)
 
 
+def test_parse_page_meta_from_fixture():
+    html = (FIXTURES_DIR / "company_directory_page1.html").read_text(encoding="utf-8")
+
+    assert parse_page_meta(html) == (1, 6, 282)
+
+
+def test_parse_page_meta_tolerates_whitespace():
+    html = "<span class=\"count\">\n\n[1 /\n6]\n[Total 282]\n</span>"
+
+    assert parse_page_meta(html) == (1, 6, 282)
+
+
+def test_parse_page_meta_go_page_fallback():
+    html = '<div class="paging"><a onclick="goPage(2)">2</a><a onclick="goPage(6)"><img alt="last page"/></a></div>'
+
+    assert parse_page_meta(html) == (None, 6, None)
+
+
+def test_parse_page_meta_returns_none_without_markers():
+    assert parse_page_meta(SAMPLE_HTML) is None
+
+
 def test_scrape_companies_paginates():
     client = PSEClient(rate_limit_seconds=0.0)
     responses = [
@@ -133,7 +166,7 @@ def test_scrape_companies_paginates():
     assert client.get.call_count == 4
 
 
-def test_scrape_companies_stops_on_non200():
+def test_scrape_companies_raises_on_non200():
     client = PSEClient(rate_limit_seconds=0.0)
     ok_resp = MagicMock(spec=requests.Response)
     ok_resp.status_code = 200
@@ -144,11 +177,81 @@ def test_scrape_companies_stops_on_non200():
     fail_resp.text = ""
 
     client.get = MagicMock(side_effect=[ok_resp, fail_resp])
+
+    with pytest.raises(ScrapeIncompleteError, match="page 2 failed"):
+        scrape_companies(client)
+
+    assert client.get.call_count == 2
+
+
+def test_scrape_companies_raises_on_page_count_mismatch():
+    client = PSEClient(rate_limit_seconds=0.0)
+    page1 = _directory_page(_row("1", "11", "Alpha", "ALP"), current=1, total_pages=6, total_rows=282)
+    empty_page = '<table class="list"><tbody></tbody></table>'
+    client.get = MagicMock(side_effect=[_mock_response(page1), _mock_response(empty_page)])
+
+    with pytest.raises(ScrapeIncompleteError, match="pagination mismatch"):
+        scrape_companies(client)
+
+
+def test_scrape_companies_raises_on_row_count_mismatch():
+    client = PSEClient(rate_limit_seconds=0.0)
+    page1 = _directory_page(_row("1", "11", "Alpha", "ALP"), current=1, total_pages=1, total_rows=2)
+    empty_page = '<table class="list"><tbody></tbody></table>'
+    client.get = MagicMock(side_effect=[_mock_response(page1), _mock_response(empty_page)])
+
+    with pytest.raises(ScrapeIncompleteError, match="row count mismatch"):
+        scrape_companies(client)
+
+
+def test_scrape_companies_accepts_extra_rows():
+    # Rows can only be added between requests; more rows than the span's total is fine.
+    client = PSEClient(rate_limit_seconds=0.0)
+    rows = _row("1", "11", "Alpha", "ALP") + _row("2", "22", "Beta", "BET")
+    page1 = _directory_page(rows, current=1, total_pages=1, total_rows=1)
+    empty_page = '<table class="list"><tbody></tbody></table>'
+    client.get = MagicMock(side_effect=[_mock_response(page1), _mock_response(empty_page)])
+
     result = scrape_companies(client)
 
-    # Should return partial results (1 page worth), not crash
+    assert len(result) == 2
+
+
+def test_scrape_companies_dedupes_rows_across_pages(caplog):
+    client = PSEClient(rate_limit_seconds=0.0)
+    page1 = _directory_page(
+        _row("1", "11", "Alpha", "ALP") + _row("2", "22", "Beta", "BET"),
+        current=1,
+        total_pages=2,
+        total_rows=3,
+    )
+    page2 = _directory_page(
+        _row("2", "22", "Beta", "BET") + _row("3", "33", "Gamma", "GAM"),
+        current=2,
+        total_pages=2,
+        total_rows=3,
+    )
+    empty_page = '<table class="list"><tbody></tbody></table>'
+    client.get = MagicMock(
+        side_effect=[_mock_response(page1), _mock_response(page2), _mock_response(empty_page)]
+    )
+
+    with caplog.at_level(logging.WARNING):
+        result = scrape_companies(client)
+
+    assert [company.stock_symbol for company in result] == ["ALP", "BET", "GAM"]
+    assert "1 duplicate" in caplog.text
+
+
+def test_scrape_companies_max_pages_skips_completeness_checks():
+    client = PSEClient(rate_limit_seconds=0.0)
+    page1 = _directory_page(_row("1", "11", "Alpha", "ALP"), current=1, total_pages=6, total_rows=282)
+    client.get = MagicMock(return_value=_mock_response(page1))
+
+    result = scrape_companies(client, max_pages=1)
+
     assert len(result) == 1
-    assert client.get.call_count == 2
+    assert client.get.call_count == 1
 
 
 def test_scrape_companies_respects_max_pages():

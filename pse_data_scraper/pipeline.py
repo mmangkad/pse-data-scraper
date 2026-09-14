@@ -14,12 +14,21 @@ from pse_data_scraper.combiner import combine_csvs
 from pse_data_scraper.downloader import download_historical_data
 from pse_data_scraper.models import Company
 from pse_data_scraper.scraper import (
+    ScrapeIncompleteError,
     load_companies_from_csv,
     save_companies_to_csv,
     scrape_companies,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _existing_company_count(path: Path) -> Optional[int]:
+    """Best-effort row count of an existing companies CSV (None if unreadable)."""
+    try:
+        return len(load_companies_from_csv(str(path)))
+    except Exception:  # pragma: no cover - only enriches the error messages below
+        return None
 
 
 def ensure_companies_csv(
@@ -34,7 +43,27 @@ def ensure_companies_csv(
         return load_companies_from_csv(str(path))
 
     logger.info("Scraping company list...")
-    companies = scrape_companies(client, max_pages=max_pages)
+    try:
+        companies = scrape_companies(client, max_pages=max_pages)
+    except ScrapeIncompleteError as exc:
+        if path.exists():
+            existing_count = _existing_company_count(path)
+            kept = f"{existing_count} companies" if existing_count is not None else "existing companies"
+            raise ScrapeIncompleteError(
+                f"{exc} Kept the existing company list ({kept}) at {path}; "
+                "re-run with --refresh to retry the scrape."
+            ) from exc
+        raise
+
+    if path.exists() and max_pages is not None:
+        existing_count = _existing_company_count(path)
+        if existing_count is not None and existing_count > len(companies):
+            raise ScrapeIncompleteError(
+                f"Refusing to overwrite {path} ({existing_count} companies) with a smaller, "
+                f"page-limited scrape ({len(companies)} companies, --max-pages={max_pages}); "
+                "re-run without --max-pages to refresh the full list."
+            )
+
     save_companies_to_csv(companies, str(path))
     return companies
 
