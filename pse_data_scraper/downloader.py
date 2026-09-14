@@ -32,6 +32,10 @@ HISTORICAL_DATA_URL = "https://edge.pse.com.ph/common/DisclosureCht.ax"
 HISTORICAL_DATA_REFERER = "https://edge.pse.com.ph/companyPage/stockData.do"
 
 
+class CorruptHistoryError(ValueError):
+    """Raised when a history CSV has malformed rows and needs a full re-fetch."""
+
+
 def _build_history_payload(
     company: Company,
     start_date: str,
@@ -113,7 +117,11 @@ def read_last_csv_date(path: Path) -> Optional[date]:
 
 
 def read_company_history_csv(input_path: Path) -> List[HistoricalPrice]:
-    """Read a history CSV back into rows (malformed rows are skipped)."""
+    """Read a history CSV back into rows.
+
+    Raises CorruptHistoryError on the first malformed row so callers can
+    fall back to a full re-fetch instead of silently dropping data.
+    """
     rows: List[HistoricalPrice] = []
     with input_path.open("r", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
@@ -130,8 +138,8 @@ def read_company_history_csv(input_path: Path) -> List[HistoricalPrice]:
                         low=Decimal(row["Low"]),
                     )
                 )
-            except (KeyError, ValueError, InvalidOperation):
-                logger.warning("Skipping malformed history row in %s", input_path)
+            except (KeyError, ValueError, InvalidOperation) as exc:
+                raise CorruptHistoryError(f"{input_path} has a malformed row: {exc}") from exc
     return rows
 
 
@@ -221,21 +229,24 @@ def download_historical_data(
         # An existing file (without --refresh) means an incremental update:
         # fetch only what is missing and merge into the file. With an explicit
         # --from, the requested range is fetched and merged (backfill or
-        # extension). An unreadable file self-heals via a full fetch.
+        # extension). An unreadable or partially corrupt file self-heals via
+        # a full fetch.
         existing_rows: Optional[List[HistoricalPrice]] = None
+        fetch_start = start_payload
         if not refresh and output_path.exists():
             last_date = read_last_csv_date(output_path)
             if last_date is not None:
-                fetch_start = (
-                    start_payload
-                    if start_date is not None
-                    else ensure_payload_date(last_date + timedelta(days=1))
-                )
-                existing_rows = read_company_history_csv(output_path)
-            else:
-                fetch_start = start_payload
-        else:
-            fetch_start = start_payload
+                try:
+                    existing_rows = read_company_history_csv(output_path)
+                except CorruptHistoryError as exc:
+                    logger.warning("%s; re-fetching in full", exc)
+                    existing_rows = None
+                if existing_rows is not None:
+                    fetch_start = (
+                        start_payload
+                        if start_date is not None
+                        else ensure_payload_date(last_date + timedelta(days=1))
+                    )
 
         logger.info("[%s] %s %s %s", processed, company.stock_symbol, company.company_id, company.company_name)
 

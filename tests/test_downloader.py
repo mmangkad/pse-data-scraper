@@ -11,6 +11,7 @@ import requests
 
 from pse_data_scraper.client import PSEClient
 from pse_data_scraper.downloader import (
+    CorruptHistoryError,
     download_historical_data,
     fetch_historical_data,
     merge_history_rows,
@@ -248,18 +249,16 @@ def test_read_company_history_csv_round_trips_written_rows(tmp_path, make_compan
     assert read_company_history_csv(path) == rows
 
 
-def test_read_company_history_csv_skips_malformed_rows(tmp_path):
+def test_read_company_history_csv_raises_on_malformed_rows(tmp_path):
     path = _history_path(tmp_path)
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"])
         writer.writerow(["TST", "Test Corp", "2024-01-02", "100", "10", "11", "12", "9"])
         writer.writerow(["TST", "Test Corp", "not-a-date", "100", "10", "11", "12", "9"])
-        writer.writerow(["TST", "Test Corp", "2024-01-03", "oops", "10", "11", "12", "9"])
 
-    rows = read_company_history_csv(path)
-
-    assert [row.date for row in rows] == [date(2024, 1, 2)]
+    with pytest.raises(CorruptHistoryError, match="malformed row"):
+        read_company_history_csv(path)
 
 
 def test_merge_history_rows_dedupes_with_newer_fetch_winning():
@@ -366,6 +365,26 @@ def test_download_historical_data_corrupt_file_triggers_full_fetch(tmp_path, mak
     assert payload["startDate"] == "01-01-1900"
     _, data = _read_csv(path)
     assert [row[2] for row in data] == ["2024-01-02"]
+
+
+def test_download_historical_data_partially_corrupt_file_triggers_full_fetch(tmp_path, make_company):
+    """A file with valid dates but some malformed rows must not lose rows on merge."""
+    path = _history_path(tmp_path)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"])
+        writer.writerow(["TST", "Test Corp", "2024-01-02", "100", "10", "11", "12", "9"])
+        writer.writerow(["TST", "Test Corp", "2024-01-05", "oops", "10", "11", "12", "9"])
+    client = _client_returning(_chart_payload(date(2024, 1, 2), date(2024, 1, 8)))
+
+    download_historical_data(
+        client, companies=[make_company()], output_dir=str(tmp_path), end_date="2024-01-31", cache_dir=None
+    )
+
+    payload = client.post.call_args.kwargs["json"]
+    assert payload["startDate"] == "01-01-1900"
+    _, data = _read_csv(path)
+    assert [row[2] for row in data] == ["2024-01-02", "2024-01-08"]
 
 
 def test_download_historical_data_explicit_start_merges_range(tmp_path, make_company):
