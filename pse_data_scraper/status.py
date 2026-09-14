@@ -7,8 +7,9 @@ from __future__ import annotations
 import csv
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
+from pse_data_scraper.downloader import read_last_csv_date
 from pse_data_scraper.utils import OUTPUT_DATE_FORMAT
 
 STATUS_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -66,6 +67,16 @@ def _combined_stats(path: Path) -> Optional[Tuple[int, Optional[Tuple[str, str]]
         else None
     )
     return rows, date_range
+
+
+def latest_price_dates(history_dir: Path) -> List[Tuple[str, Optional[str]]]:
+    """Latest price date per history file, stalest first (None = no dates)."""
+    entries: List[Tuple[str, Optional[str]]] = []
+    for path in sorted(history_dir.glob("*.csv")):
+        latest = read_last_csv_date(path)
+        entries.append((path.name, latest.isoformat() if latest is not None else None))
+    entries.sort(key=lambda entry: (entry[1] is not None, entry[1] or "", entry[0]))
+    return entries
 
 
 def collect_status(

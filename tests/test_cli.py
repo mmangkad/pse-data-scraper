@@ -235,3 +235,20 @@ def test_status_json_output(monkeypatch, tmp_path, capsys):
     assert payload["companies"]["rows"] == 1
     assert payload["combined"]["rows"] == 2
     assert payload["combined"]["date_range"] == ["2024-01-02", "2024-01-05"]
+
+
+def test_status_verbose_lists_latest_price_dates(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    _write_dataset(tmp_path)
+    history_dir = tmp_path / "data" / "history"
+    history_dir.mkdir()
+    with (history_dir / "TST_Test_Corp.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"])
+        writer.writerow(["TST", "Test Corp", "2024-01-05", "100", "10", "11", "12", "9"])
+
+    _run_main(monkeypatch, ["status", "--verbose"])
+
+    out = capsys.readouterr().out
+    assert "Latest price date per company (stalest first):" in out
+    assert "TST_Test_Corp.csv: 2024-01-05" in out

@@ -18,7 +18,7 @@ from pse_data_scraper.config import DEFAULT_CONFIG_NAME, load_config, write_defa
 from pse_data_scraper.downloader import SymbolNotFoundError, download_historical_data
 from pse_data_scraper.pipeline import ensure_companies_csv, export_prices, sync_data
 from pse_data_scraper.scraper import ScrapeIncompleteError
-from pse_data_scraper.status import collect_status
+from pse_data_scraper.status import collect_status, latest_price_dates
 from pse_data_scraper.utils import log_cache_deprecation_once
 
 
@@ -236,6 +236,10 @@ def handle_status(args) -> None:
         print(json.dumps(status, indent=2))
     else:
         _print_status(status)
+    if getattr(args, "verbose", False):
+        print("Latest price date per company (stalest first):")
+        for name, latest in latest_price_dates(cfg.history_dir):
+            print(f"  {name}: {latest or 'no dates'}")
 
 
 SECTOR_HELP = (
@@ -351,6 +355,9 @@ def build_parser() -> argparse.ArgumentParser:
     status_parser.add_argument("--history-dir", help="History data directory")
     status_parser.add_argument("--combined", help="Combined CSV path")
     status_parser.add_argument("--json", action="store_true", help="Output the status as JSON")
+    status_parser.add_argument(
+        "--verbose", action="store_true", help="Also list the latest price date per company"
+    )
     status_parser.set_defaults(func=handle_status)
 
     return parser
