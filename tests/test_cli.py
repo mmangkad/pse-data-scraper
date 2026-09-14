@@ -29,6 +29,21 @@ def test_incomplete_scrape_exits_nonzero_with_message(monkeypatch, tmp_path, cap
     assert "directory request for page 2 failed" in caplog.text
 
 
+def test_unknown_symbols_exit_nonzero_with_message(monkeypatch, tmp_path, caplog):
+    monkeypatch.chdir(tmp_path)
+    save_companies_to_csv(
+        [Company(company_id="1", security_id="2", company_name="Test Corp", stock_symbol="TST")],
+        str(tmp_path / "data" / "companies.csv"),
+    )
+
+    # The error is raised before any request is made, so no mocking is needed.
+    with pytest.raises(SystemExit) as excinfo:
+        _run_main(monkeypatch, ["prices", "--symbols", "MERB"])
+
+    assert excinfo.value.code == 1
+    assert "None of the requested symbols (MERB)" in caplog.text
+
+
 def test_companies_refresh_scrapes_and_lists(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     companies = [

@@ -37,6 +37,10 @@ class CorruptHistoryError(ValueError):
     """Raised when a history CSV has malformed rows and needs a full re-fetch."""
 
 
+class SymbolNotFoundError(ValueError):
+    """Raised when none of the requested symbols exist in the company directory."""
+
+
 @dataclass
 class SyncReport:
     """Outcome of a download run: written files plus per-status company counts."""
@@ -225,6 +229,19 @@ def download_historical_data(
         companies = load_companies_from_csv(input_csv)
 
     symbol_set = {symbol.strip().upper() for symbol in symbols} if symbols else None
+    if symbol_set:
+        available = {company.stock_symbol.upper() for company in companies}
+        for missing in sorted(symbol_set - available):
+            logger.warning(
+                "Symbol %s not found in company directory (it may be a preferred/warrant/"
+                "delisted security — EDGE lists primary securities only)",
+                missing,
+            )
+        if not symbol_set & available:
+            raise SymbolNotFoundError(
+                f"None of the requested symbols ({', '.join(sorted(symbol_set))}) were found "
+                "in the company directory."
+            )
     output_root = Path(output_dir)
 
     start_payload = ensure_payload_date(start_date or "01-01-1900")

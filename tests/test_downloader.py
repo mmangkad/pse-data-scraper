@@ -12,6 +12,7 @@ import requests
 from pse_data_scraper.client import PSEClient
 from pse_data_scraper.downloader import (
     CorruptHistoryError,
+    SymbolNotFoundError,
     SyncReport,
     download_historical_data,
     fetch_historical_data,
@@ -465,6 +466,55 @@ def test_download_historical_data_refresh_ignores_existing_file(tmp_path, make_c
     assert payload["startDate"] == "01-01-1900"
     _, data = _read_csv(path)
     assert [row[2] for row in data] == ["2024-01-08"]
+
+
+def test_download_historical_data_warns_on_unmatched_symbols(tmp_path, make_company, caplog):
+    client = _client_returning(_chart_payload(date(2024, 1, 2)))
+
+    with caplog.at_level(logging.WARNING):
+        download_historical_data(
+            client,
+            companies=[make_company()],
+            output_dir=str(tmp_path),
+            symbols=["TST", "MERB"],
+            end_date="2024-01-31",
+            cache_dir=None,
+        )
+
+    assert "Symbol MERB not found in company directory" in caplog.text
+    assert "EDGE lists primary securities only" in caplog.text
+
+
+def test_download_historical_data_raises_when_no_symbols_match(tmp_path, make_company):
+    client = _client_returning(_chart_payload(date(2024, 1, 2)))
+
+    with pytest.raises(SymbolNotFoundError, match="MERB"):
+        download_historical_data(
+            client,
+            companies=[make_company()],
+            output_dir=str(tmp_path),
+            symbols=["MERB"],
+            end_date="2024-01-31",
+            cache_dir=None,
+        )
+
+    client.post.assert_not_called()
+
+
+def test_download_historical_data_no_warning_when_all_symbols_match(tmp_path, make_company, caplog):
+    client = _client_returning(_chart_payload(date(2024, 1, 2)))
+
+    with caplog.at_level(logging.WARNING):
+        download_historical_data(
+            client,
+            companies=[make_company()],
+            output_dir=str(tmp_path),
+            symbols=["tst"],
+            end_date="2024-01-31",
+            cache_dir=None,
+        )
+
+    assert "not found in company directory" not in caplog.text
 
 
 def test_download_historical_data_raises_without_companies_or_csv():

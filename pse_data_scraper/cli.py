@@ -14,7 +14,7 @@ from typing import List, Optional
 from pse_data_scraper import __version__
 from pse_data_scraper.client import PSEClient
 from pse_data_scraper.config import DEFAULT_CONFIG_NAME, load_config, write_default_config
-from pse_data_scraper.downloader import download_historical_data
+from pse_data_scraper.downloader import SymbolNotFoundError, download_historical_data
 from pse_data_scraper.pipeline import ensure_companies_csv, export_prices, sync_data
 from pse_data_scraper.scraper import ScrapeIncompleteError
 from pse_data_scraper.status import collect_status
@@ -316,7 +316,7 @@ def main() -> None:
     _setup_logging(args.verbose, args.quiet)
     try:
         args.func(args)
-    except ScrapeIncompleteError as exc:
+    except (ScrapeIncompleteError, SymbolNotFoundError) as exc:
         logging.error("%s", exc)
         raise SystemExit(1)
 
