@@ -61,7 +61,8 @@ Common options:
 - `--sector` / `--keyword` filter by sector or company name. They apply
   server-side when the directory is scraped and locally when
   `companies.csv` already exists. The SME board's sector value is the
-  literal string `Small, Medium & Emerging Board`.
+  literal string `Small, Medium & Emerging Board`. Like `--symbols`, a
+  filter that matches nothing exits 1.
 - `--max-companies` is useful for quick test runs.
 - `--refresh` re-downloads price history (`prices`), re-scrapes the
   directory (`companies`), or both (`sync`).

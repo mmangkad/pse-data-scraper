@@ -46,6 +46,17 @@ def test_unknown_symbols_exit_nonzero_with_message(monkeypatch, tmp_path, caplog
     assert "None of the requested symbols (MERB)" in caplog.text
 
 
+def test_zero_match_sector_filter_exits_nonzero(monkeypatch, tmp_path, caplog):
+    monkeypatch.chdir(tmp_path)
+    _write_dataset(tmp_path)
+
+    with pytest.raises(SystemExit) as excinfo:
+        _run_main(monkeypatch, ["prices", "--sector", "Does Not Exist"])
+
+    assert excinfo.value.code == 1
+    assert "No companies in" in caplog.text and "match" in caplog.text
+
+
 def test_companies_refresh_scrapes_and_lists(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     companies = [

@@ -11,7 +11,7 @@ from typing import List, Optional, Sequence
 
 from pse_data_scraper.client import PSEClient
 from pse_data_scraper.combiner import combine_csvs
-from pse_data_scraper.downloader import download_historical_data
+from pse_data_scraper.downloader import SymbolNotFoundError, download_historical_data
 from pse_data_scraper.models import Company
 from pse_data_scraper.scraper import (
     ScrapeIncompleteError,
@@ -62,19 +62,15 @@ def ensure_companies_csv(
         if keyword or sector:
             total = len(companies)
             companies = _filter_companies_locally(companies, keyword=keyword, sector=sector)
-            if companies:
-                logger.info(
-                    "Filtered existing company list by sector/keyword: %s of %s companies",
-                    len(companies),
-                    total,
+            if not companies:
+                raise SymbolNotFoundError(
+                    f"No companies in {path} match sector={sector!r} keyword={keyword!r}"
                 )
-            else:
-                logger.warning(
-                    "No companies in %s match sector=%r keyword=%r",
-                    path,
-                    sector,
-                    keyword,
-                )
+            logger.info(
+                "Filtered existing company list by sector/keyword: %s of %s companies",
+                len(companies),
+                total,
+            )
         return companies
 
     logger.info("Scraping company list...")
@@ -89,6 +85,13 @@ def ensure_companies_csv(
                 "re-run with --refresh to retry the scrape."
             ) from exc
         raise
+
+    if not companies and (keyword or sector):
+        # A zero-match filter is almost certainly a typo; never save (or
+        # overwrite a good file with) an empty list.
+        raise SymbolNotFoundError(
+            f"A directory scrape with sector={sector!r} keyword={keyword!r} returned no companies"
+        )
 
     if path.exists() and max_pages is not None:
         existing_count = _existing_company_count(path)
