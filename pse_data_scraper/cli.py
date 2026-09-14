@@ -18,6 +18,7 @@ from pse_data_scraper.downloader import download_historical_data
 from pse_data_scraper.pipeline import ensure_companies_csv, export_prices, sync_data
 from pse_data_scraper.scraper import ScrapeIncompleteError
 from pse_data_scraper.status import collect_status
+from pse_data_scraper.utils import log_cache_deprecation_once
 
 
 def _parse_symbols(value: Optional[str]) -> Optional[List[str]]:
@@ -74,9 +75,11 @@ def _apply_overrides(config, args):
     cache_dir = getattr(args, "cache_dir", None)
     if cache_dir:
         cfg.cache_dir = Path(cache_dir)
+        log_cache_deprecation_once()
 
     if getattr(args, "no_cache", False):
         cfg.cache_dir = None
+        log_cache_deprecation_once()
 
     rate_limit = getattr(args, "rate_limit", None)
     if rate_limit is not None:
@@ -159,10 +162,11 @@ def handle_companies(args) -> None:
 def handle_prices(args) -> None:
     cfg = _resolve_config(args)
     client = PSEClient(rate_limit_seconds=cfg.rate_limit)
+    # --refresh applies to price history only; the company directory is
+    # re-scraped by `pse companies --refresh` / `pse sync --refresh`.
     companies = ensure_companies_csv(
         client=client,
         companies_csv=str(cfg.companies_csv),
-        refresh=getattr(args, "refresh", False),
         max_pages=getattr(args, "max_pages", None),
     )
     download_historical_data(
@@ -284,7 +288,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     prices_parser.add_argument("--max-companies", type=int, help="Limit number of companies")
     prices_parser.add_argument("--max-pages", type=int, help="Limit number of company pages")
-    prices_parser.add_argument("--refresh", action="store_true", help="Refresh companies and prices")
+    prices_parser.add_argument(
+        "--refresh", action="store_true", help="Re-download price history even if files exist"
+    )
     prices_parser.set_defaults(func=handle_prices)
 
     export_parser = subparsers.add_parser("export", help="Export combined dataset")

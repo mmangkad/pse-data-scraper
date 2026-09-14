@@ -5,12 +5,29 @@ Helper utilities for formatting and filenames.
 from __future__ import annotations
 
 import html
+import logging
 import re
 from datetime import date, datetime
 from typing import Union
 
+logger = logging.getLogger(__name__)
+
 PAYLOAD_DATE_FORMAT = "%m-%d-%Y"
 OUTPUT_DATE_FORMAT = "%Y-%m-%d"
+
+_cache_deprecation_logged = False
+
+
+def log_cache_deprecation_once() -> None:
+    """Log the one-release deprecation notice for the removed response cache."""
+    global _cache_deprecation_logged
+    if _cache_deprecation_logged:
+        return
+    _cache_deprecation_logged = True
+    logger.warning(
+        "The response cache is deprecated and no longer used; "
+        "per-company CSVs are the source of truth."
+    )
 
 
 def ensure_payload_date(value: Union[str, date, datetime]) -> str:

@@ -1,8 +1,8 @@
 # PSE Data Scraper
 
 PSE Data Scraper pulls company lists and historical price data from PSE EDGE,
-then exports them to CSV for analysis. It includes a CLI, retry logic, optional
-caching, and a small Python API.
+then exports them to CSV for analysis. It includes a CLI, retry logic, and a
+small Python API.
 
 ## Quick Start
 
@@ -48,7 +48,7 @@ Common options:
 - `--symbols` limits downloads to specific tickers.
 - `--max-companies` is useful for quick test runs.
 - `--refresh` forces re-downloads even if files exist.
-- `--no-cache` disables cached API responses.
+- `--cache-dir` / `--no-cache` are deprecated no-ops; per-company CSVs are the source of truth.
 - Dates accept `MM-DD-YYYY` or `YYYY-MM-DD`.
 
 ## Configuration
@@ -67,7 +67,6 @@ Example `pse.toml`:
 ```toml
 [paths]
 data_dir = "data"
-cache_dir = ".cache"
 
 [network]
 rate_limit = 0.6
@@ -97,7 +96,6 @@ combine_csvs("data/history", "data/combined.csv")
 - `data/companies.csv` - company list with IDs and symbols
 - `data/history/` - one CSV per company
 - `data/combined.csv` - consolidated price dataset
-- `.cache/` - optional cached API responses
 
 ## API Notes
 

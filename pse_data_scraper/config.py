@@ -13,6 +13,8 @@ try:
 except ImportError:  # pragma: no cover - fallback for Python <3.11
     import tomli as tomllib  # type: ignore
 
+from pse_data_scraper.utils import log_cache_deprecation_once
+
 DEFAULT_CONFIG_NAME = "pse.toml"
 DEFAULT_DATA_DIR = "data"
 DEFAULT_CACHE_DIR = ".cache"
@@ -27,7 +29,6 @@ data_dir = "data"
 # companies_csv = "data/companies.csv"
 # history_dir = "data/history"
 # combined_csv = "data/combined.csv"
-cache_dir = ".cache"
 
 [network]
 rate_limit = 0.6
@@ -138,6 +139,9 @@ def load_config(path: Optional[str] = None) -> Config:
     config.history_dir = _resolve_path(paths.get("history_dir"), base_dir)
     config.combined_csv = _resolve_path(paths.get("combined_csv"), base_dir)
 
+    if "cache_dir" in paths:
+        # Deprecated and ignored; kept parsing one release for old configs.
+        log_cache_deprecation_once()
     cache_value = paths.get("cache_dir", config.cache_dir)
     if cache_value in (None, "", False):
         config.cache_dir = None

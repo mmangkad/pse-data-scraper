@@ -1,9 +1,9 @@
 # Test fixtures
 
-Snapshots of real PSE EDGE responses, captured on **2026-09-15** during the API
-audit described in `IMPROVEMENT_PLAN.md` (local-only file; see also `docs/API.md`).
-They pin the parser to the actual wire format so that a future EDGE markup or
-payload change fails loudly in CI instead of silently producing empty output.
+Snapshots of real PSE EDGE responses, captured on **2026-09-15** during a live
+audit of the endpoints documented in `docs/API.md`. They pin the parser to the
+actual wire format so that a future EDGE markup or payload change fails loudly
+in CI instead of silently producing empty output.
 
 | Fixture | Endpoint | Contents |
 |---|---|---|
