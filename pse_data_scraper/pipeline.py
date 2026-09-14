@@ -36,6 +36,8 @@ def ensure_companies_csv(
     companies_csv: str,
     refresh: bool = False,
     max_pages: Optional[int] = None,
+    keyword: Optional[str] = None,
+    sector: Optional[str] = None,
 ) -> List[Company]:
     path = Path(companies_csv)
     if path.exists() and not refresh:
@@ -44,7 +46,7 @@ def ensure_companies_csv(
 
     logger.info("Scraping company list...")
     try:
-        companies = scrape_companies(client, max_pages=max_pages)
+        companies = scrape_companies(client, max_pages=max_pages, keyword=keyword, sector=sector)
     except ScrapeIncompleteError as exc:
         if path.exists():
             existing_count = _existing_company_count(path)
@@ -110,6 +112,8 @@ def sync_data(
     cache_dir: Optional[str] = ".cache",
     refresh: bool = False,
     max_pages: Optional[int] = None,
+    keyword: Optional[str] = None,
+    sector: Optional[str] = None,
 ) -> None:
     client = PSEClient(rate_limit_seconds=rate_limit_seconds)
 
@@ -119,6 +123,8 @@ def sync_data(
         companies_csv=companies_csv,
         refresh=refresh,
         max_pages=max_pages,
+        keyword=keyword,
+        sector=sector,
     )
 
     logger.info("Step 2: Downloading historical data...")

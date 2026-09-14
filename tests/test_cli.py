@@ -119,3 +119,29 @@ def test_sync_refresh_refreshes_companies_and_prices(monkeypatch, tmp_path):
 
     assert ensure.call_args.kwargs["refresh"] is True
     assert download.call_args.kwargs["refresh"] is True
+
+
+def test_sector_and_keyword_flags_reach_company_scrape(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    with patch("pse_data_scraper.cli.ensure_companies_csv") as ensure:
+        _run_main(
+            monkeypatch,
+            ["companies", "--sector", "Mining and Oil", "--keyword", "Ayala"],
+        )
+
+    assert ensure.call_args.kwargs["sector"] == "Mining and Oil"
+    assert ensure.call_args.kwargs["keyword"] == "Ayala"
+
+
+def test_sector_and_keyword_from_config_reach_company_scrape(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pse.toml").write_text(
+        '[download]\nsector = "Services"\nkeyword = "Ayala"\n', encoding="utf-8"
+    )
+
+    with patch("pse_data_scraper.cli.ensure_companies_csv") as ensure:
+        _run_main(monkeypatch, ["companies"])
+
+    assert ensure.call_args.kwargs["sector"] == "Services"
+    assert ensure.call_args.kwargs["keyword"] == "Ayala"

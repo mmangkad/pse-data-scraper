@@ -268,6 +268,29 @@ def test_scrape_companies_respects_max_pages():
     assert client.get.call_count == 2
 
 
+def test_scrape_companies_passes_filters_as_params():
+    client = PSEClient(rate_limit_seconds=0.0)
+    client.get = MagicMock(return_value=_mock_response('<table class="list"><tbody></tbody></table>'))
+
+    scrape_companies(client, keyword="Aya", sector="Services", subsector="Media")
+
+    assert client.get.call_args.kwargs["params"] == {
+        "pageNo": 1,
+        "keyword": "Aya",
+        "sector": "Services",
+        "subsector": "Media",
+    }
+
+
+def test_scrape_companies_omits_unset_filters():
+    client = PSEClient(rate_limit_seconds=0.0)
+    client.get = MagicMock(return_value=_mock_response('<table class="list"><tbody></tbody></table>'))
+
+    scrape_companies(client)
+
+    assert client.get.call_args.kwargs["params"] == {"pageNo": 1}
+
+
 def test_save_and_load_companies_csv_round_trip(tmp_path):
     companies = [
         Company(

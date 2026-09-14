@@ -19,7 +19,7 @@ from pse_data_scraper.utils import OUTPUT_DATE_FORMAT, format_output_date
 
 logger = logging.getLogger(__name__)
 
-COMPANY_DIRECTORY_URL = "https://edge.pse.com.ph/companyDirectory/search.ax?pageNo={page}"
+COMPANY_DIRECTORY_URL = "https://edge.pse.com.ph/companyDirectory/search.ax"
 COMPANY_DIRECTORY_REFERER = "https://edge.pse.com.ph/companyDirectory/form.do"
 
 LISTING_DATE_FORMAT = "%b %d, %Y"
@@ -142,7 +142,16 @@ def parse_companies_from_html(page_html: str) -> List[Company]:
 def scrape_companies(
     client: PSEClient,
     max_pages: Optional[int] = None,
+    keyword: Optional[str] = None,
+    sector: Optional[str] = None,
+    subsector: Optional[str] = None,
 ) -> List[Company]:
+    """Scrape the company directory.
+
+    ``keyword`` (company name substring), ``sector``, and ``subsector`` are
+    applied server-side by the directory search, so filtered scrapes fetch
+    fewer pages.
+    """
     all_companies: List[Company] = []
     seen_keys: Set[Tuple[str, str]] = set()
     duplicates = 0
@@ -156,9 +165,20 @@ def scrape_companies(
             hit_page_limit = True
             break
 
-        url = COMPANY_DIRECTORY_URL.format(page=page)
+        search_params = {"pageNo": page}
+        if keyword:
+            search_params["keyword"] = keyword
+        if sector:
+            search_params["sector"] = sector
+        if subsector:
+            search_params["subsector"] = subsector
+
         logger.info("Fetching page %s", page)
-        response = client.get(url, headers={"Referer": COMPANY_DIRECTORY_REFERER})
+        response = client.get(
+            COMPANY_DIRECTORY_URL,
+            params=search_params,
+            headers={"Referer": COMPANY_DIRECTORY_REFERER},
+        )
         if response.status_code != 200:
             raise ScrapeIncompleteError(
                 f"Company directory request for page {page} failed "
