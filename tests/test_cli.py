@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from pse_data_scraper.cli import main
+from pse_data_scraper.cli import build_parser, main
 from pse_data_scraper.models import Company
 from pse_data_scraper.scraper import ScrapeIncompleteError, save_companies_to_csv
 
@@ -263,3 +263,28 @@ def test_status_verbose_lists_latest_price_dates(monkeypatch, tmp_path, capsys):
     out = capsys.readouterr().out
     assert "Latest price date per company (stalest first):" in out
     assert "TST_Test_Corp.csv: 2024-01-05" in out
+
+
+def test_global_verbose_flag_survives_status_subcommand():
+    args = build_parser().parse_args(["--verbose", "status"])
+
+    assert args.verbose is True
+    assert args.status_verbose is False
+
+
+def test_status_verbose_flag_does_not_touch_global_verbose():
+    args = build_parser().parse_args(["status", "--verbose"])
+
+    assert args.status_verbose is True
+    assert args.verbose is False
+
+
+def test_status_json_output_stays_parseable_with_verbose(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    _write_dataset(tmp_path)
+
+    _run_main(monkeypatch, ["status", "--json", "--verbose"])
+
+    out = capsys.readouterr().out
+    assert "Latest price date per company" not in out
+    assert json.loads(out)["combined"]["rows"] == 2

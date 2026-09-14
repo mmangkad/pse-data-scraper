@@ -236,10 +236,10 @@ def handle_status(args) -> None:
         print(json.dumps(status, indent=2))
     else:
         _print_status(status)
-    if getattr(args, "verbose", False):
-        print("Latest price date per company (stalest first):")
-        for name, latest in latest_price_dates(cfg.history_dir):
-            print(f"  {name}: {latest or 'no dates'}")
+        if getattr(args, "status_verbose", False):
+            print("Latest price date per company (stalest first):")
+            for name, latest in latest_price_dates(cfg.history_dir):
+                print(f"  {name}: {latest or 'no dates'}")
 
 
 SECTOR_HELP = (
@@ -356,7 +356,12 @@ def build_parser() -> argparse.ArgumentParser:
     status_parser.add_argument("--combined", help="Combined CSV path")
     status_parser.add_argument("--json", action="store_true", help="Output the status as JSON")
     status_parser.add_argument(
-        "--verbose", action="store_true", help="Also list the latest price date per company"
+        # Own dest: the global --verbose (debug logging) must keep working
+        # for `pse --verbose status`, and this flag must not turn DEBUG on.
+        "--verbose",
+        dest="status_verbose",
+        action="store_true",
+        help="Also list the latest price date per company (text output only)",
     )
     status_parser.set_defaults(func=handle_status)
 
