@@ -15,6 +15,8 @@ from pse_data_scraper.downloader import (
 )
 from pse_data_scraper.models import Company, HistoricalPrice
 
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
+
 
 def _read_csv(path: Path) -> tuple[list[str], list[list[str]]]:
     with path.open("r", encoding="utf-8") as f:
@@ -151,6 +153,25 @@ def test_fetch_historical_data_with_refresh_ignores_cache(tmp_path: Path, make_c
     # Second call with refresh=True should still make a request (cache ignored)
     fetch_historical_data(client, company, "01-01-2024", "01-31-2024", cache_dir=cache_dir, refresh=True)
     assert client.post.call_count == 2
+
+
+def test_fetch_historical_data_parses_captured_mer_response(make_company, mock_client):
+    """Contract test against a real DisclosureCht.ax response captured 2026-09-15."""
+    payload = json.loads((FIXTURES_DIR / "disclosure_chart_mer.json").read_text(encoding="utf-8"))
+    client = mock_client(payload)
+    company = make_company()
+
+    results = fetch_historical_data(client, company, "08-01-2026", "08-31-2026")
+
+    assert len(results) == 19
+    assert results[0].date == date(2026, 8, 3)
+    assert results[-1].date == date(2026, 8, 28)
+    assert results == sorted(results, key=lambda row: row.date)
+    assert results[0].symbol == "TST"
+    assert results[0].open == Decimal("474.0")
+    assert results[0].close == Decimal("487.0")
+    assert results[0].low == Decimal("451.2")
+    assert results[0].value == Decimal("413592336.0")
 
 
 def test_download_historical_data_raises_without_companies_or_csv():
