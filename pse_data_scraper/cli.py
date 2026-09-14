@@ -18,7 +18,7 @@ from pse_data_scraper.config import DEFAULT_CONFIG_NAME, load_config, write_defa
 from pse_data_scraper.downloader import SymbolNotFoundError, download_historical_data
 from pse_data_scraper.pipeline import ensure_companies_csv, export_prices, sync_data
 from pse_data_scraper.scraper import ScrapeIncompleteError
-from pse_data_scraper.status import collect_status
+from pse_data_scraper.status import collect_status, latest_price_dates
 from pse_data_scraper.utils import log_cache_deprecation_once
 
 
@@ -85,6 +85,10 @@ def _apply_overrides(config, args):
     rate_limit = getattr(args, "rate_limit", None)
     if rate_limit is not None:
         cfg.rate_limit = rate_limit
+
+    timeout = getattr(args, "timeout", None)
+    if timeout is not None and timeout > 0:
+        cfg.timeout_seconds = timeout
 
     start_date = getattr(args, "start_date", None)
     if start_date:
@@ -158,7 +162,7 @@ def handle_init(args) -> None:
 
 def handle_companies(args) -> None:
     cfg = _resolve_config(args)
-    client = PSEClient(rate_limit_seconds=cfg.rate_limit)
+    client = PSEClient(rate_limit_seconds=cfg.rate_limit, timeout_seconds=cfg.timeout_seconds)
     companies = ensure_companies_csv(
         client=client,
         companies_csv=str(cfg.companies_csv),
@@ -174,7 +178,7 @@ def handle_companies(args) -> None:
 
 def handle_prices(args) -> None:
     cfg = _resolve_config(args)
-    client = PSEClient(rate_limit_seconds=cfg.rate_limit)
+    client = PSEClient(rate_limit_seconds=cfg.rate_limit, timeout_seconds=cfg.timeout_seconds)
     # --refresh applies to price history only; the company directory is
     # re-scraped by `pse companies --refresh` / `pse sync --refresh`.
     companies = ensure_companies_csv(
@@ -221,6 +225,7 @@ def handle_sync(args) -> None:
         max_pages=getattr(args, "max_pages", None),
         keyword=cfg.keyword,
         sector=cfg.sector,
+        timeout_seconds=cfg.timeout_seconds,
     )
 
 
@@ -231,6 +236,10 @@ def handle_status(args) -> None:
         print(json.dumps(status, indent=2))
     else:
         _print_status(status)
+        if getattr(args, "status_verbose", False):
+            print("Latest price date per company (stalest first):")
+            for name, latest in latest_price_dates(cfg.history_dir):
+                print(f"  {name}: {latest or 'no dates'}")
 
 
 SECTOR_HELP = (
@@ -268,6 +277,7 @@ def build_parser() -> argparse.ArgumentParser:
     sync_parser.add_argument("--cache-dir", help="Cache folder")
     sync_parser.add_argument("--no-cache", action="store_true", help="Disable caching")
     sync_parser.add_argument("--rate-limit", type=float, help="Seconds between requests")
+    sync_parser.add_argument("--timeout", type=int, help="Request timeout in seconds")
     sync_parser.add_argument("--symbols", help="Comma-separated stock symbols to download")
     sync_parser.add_argument(
         "--from",
@@ -292,6 +302,7 @@ def build_parser() -> argparse.ArgumentParser:
     companies_parser.add_argument("--data-dir", help="Root data directory")
     companies_parser.add_argument("--companies", "--output", dest="companies", help="Companies CSV path")
     companies_parser.add_argument("--rate-limit", type=float, help="Seconds between requests")
+    companies_parser.add_argument("--timeout", type=int, help="Request timeout in seconds")
     companies_parser.add_argument("--max-pages", type=int, help="Limit number of pages")
     companies_parser.add_argument("--sector", help=SECTOR_HELP)
     companies_parser.add_argument("--keyword", help=KEYWORD_HELP)
@@ -308,6 +319,7 @@ def build_parser() -> argparse.ArgumentParser:
     prices_parser.add_argument("--cache-dir", help="Cache folder")
     prices_parser.add_argument("--no-cache", action="store_true", help="Disable caching")
     prices_parser.add_argument("--rate-limit", type=float, help="Seconds between requests")
+    prices_parser.add_argument("--timeout", type=int, help="Request timeout in seconds")
     prices_parser.add_argument("--symbols", help="Comma-separated stock symbols to download")
     prices_parser.add_argument(
         "--from",
@@ -343,6 +355,14 @@ def build_parser() -> argparse.ArgumentParser:
     status_parser.add_argument("--history-dir", help="History data directory")
     status_parser.add_argument("--combined", help="Combined CSV path")
     status_parser.add_argument("--json", action="store_true", help="Output the status as JSON")
+    status_parser.add_argument(
+        # Own dest: the global --verbose (debug logging) must keep working
+        # for `pse --verbose status`, and this flag must not turn DEBUG on.
+        "--verbose",
+        dest="status_verbose",
+        action="store_true",
+        help="Also list the latest price date per company (text output only)",
+    )
     status_parser.set_defaults(func=handle_status)
 
     return parser

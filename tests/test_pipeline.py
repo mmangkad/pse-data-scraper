@@ -1,10 +1,10 @@
-import logging
 from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from pse_data_scraper.client import PSEClient
+from pse_data_scraper.downloader import SymbolNotFoundError
 from pse_data_scraper.models import Company
 from pse_data_scraper.pipeline import ensure_companies_csv
 from pse_data_scraper.scraper import ScrapeIncompleteError, save_companies_to_csv
@@ -139,18 +139,28 @@ def test_ensure_companies_csv_filters_existing_list_by_sector_and_keyword(tmp_pa
     assert [company.stock_symbol for company in result] == ["AUB"]
 
 
-def test_ensure_companies_csv_warns_when_filters_match_nothing(tmp_path, caplog):
+def test_ensure_companies_csv_raises_when_filters_match_nothing(tmp_path):
     companies_csv = tmp_path / "companies.csv"
     _write_companies_csv(companies_csv, [_make_company("AAA")])
 
     client = PSEClient(rate_limit_seconds=0.0)
     client.get = MagicMock()
 
-    with caplog.at_level(logging.WARNING):
-        result = ensure_companies_csv(client, str(companies_csv), sector="Financials")
+    with pytest.raises(SymbolNotFoundError, match="No companies in"):
+        ensure_companies_csv(client, str(companies_csv), sector="Financials")
 
-    assert result == []
-    assert "No companies in" in caplog.text and "match" in caplog.text
+
+def test_ensure_companies_csv_filtered_scrape_empty_keeps_existing_file(tmp_path):
+    companies_csv = tmp_path / "companies.csv"
+    _write_companies_csv(companies_csv, [_make_company("AAA"), _make_company("BDO")])
+    before = companies_csv.read_text(encoding="utf-8")
+
+    client = PSEClient(rate_limit_seconds=0.0)
+    with patch("pse_data_scraper.pipeline.scrape_companies", return_value=[]):
+        with pytest.raises(SymbolNotFoundError, match="returned no companies"):
+            ensure_companies_csv(client, str(companies_csv), refresh=True, sector="Nonexistent")
+
+    assert companies_csv.read_text(encoding="utf-8") == before
 
 
 def test_ensure_companies_csv_scrapes_and_saves_when_missing(tmp_path):
@@ -175,7 +185,9 @@ def test_ensure_companies_csv_passes_directory_filters(tmp_path):
     companies_csv = tmp_path / "companies.csv"
     client = PSEClient(rate_limit_seconds=0.0)
 
-    with patch("pse_data_scraper.pipeline.scrape_companies", return_value=[]) as mock_scrape:
+    with patch(
+        "pse_data_scraper.pipeline.scrape_companies", return_value=[_make_company("AC")]
+    ) as mock_scrape:
         ensure_companies_csv(client, str(companies_csv), keyword="Ayala", sector="Services")
 
     mock_scrape.assert_called_once_with(client, max_pages=None, keyword="Ayala", sector="Services")

@@ -53,13 +53,16 @@ pse status --json
 Common options:
 
 - `--rate-limit` sets the delay between requests.
+- `--timeout` sets the per-request timeout in seconds (default 30; also
+  `timeout` under `[network]` in `pse.toml`).
 - `--symbols` limits downloads to specific tickers. Symbols missing from the
   directory warn (EDGE lists primary securities only — no preferreds,
   warrants, or delisted names); if none match, the command exits 1.
 - `--sector` / `--keyword` filter by sector or company name. They apply
   server-side when the directory is scraped and locally when
   `companies.csv` already exists. The SME board's sector value is the
-  literal string `Small, Medium & Emerging Board`.
+  literal string `Small, Medium & Emerging Board`. Like `--symbols`, a
+  filter that matches nothing exits 1.
 - `--max-companies` is useful for quick test runs.
 - `--refresh` re-downloads price history (`prices`), re-scrapes the
   directory (`companies`), or both (`sync`).
@@ -87,6 +90,7 @@ data_dir = "data"
 
 [network]
 rate_limit = 0.6
+# timeout = 30
 
 [download]
 start_date = "2020-01-01"

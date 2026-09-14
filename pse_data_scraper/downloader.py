@@ -38,7 +38,7 @@ class CorruptHistoryError(ValueError):
 
 
 class SymbolNotFoundError(ValueError):
-    """Raised when none of the requested symbols exist in the company directory."""
+    """Raised when a requested symbol or directory filter matches nothing."""
 
 
 @dataclass

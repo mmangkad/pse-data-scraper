@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from pse_data_scraper.cli import main
+from pse_data_scraper.cli import build_parser, main
 from pse_data_scraper.models import Company
 from pse_data_scraper.scraper import ScrapeIncompleteError, save_companies_to_csv
 
@@ -44,6 +44,17 @@ def test_unknown_symbols_exit_nonzero_with_message(monkeypatch, tmp_path, caplog
 
     assert excinfo.value.code == 1
     assert "None of the requested symbols (MERB)" in caplog.text
+
+
+def test_zero_match_sector_filter_exits_nonzero(monkeypatch, tmp_path, caplog):
+    monkeypatch.chdir(tmp_path)
+    _write_dataset(tmp_path)
+
+    with pytest.raises(SystemExit) as excinfo:
+        _run_main(monkeypatch, ["prices", "--sector", "Does Not Exist"])
+
+    assert excinfo.value.code == 1
+    assert "No companies in" in caplog.text and "match" in caplog.text
 
 
 def test_companies_refresh_scrapes_and_lists(monkeypatch, tmp_path, capsys):
@@ -136,6 +147,29 @@ def test_sector_and_keyword_flags_reach_company_scrape(monkeypatch, tmp_path):
     assert ensure.call_args.kwargs["keyword"] == "Ayala"
 
 
+def test_timeout_flag_reaches_client(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    with patch("pse_data_scraper.cli.PSEClient") as client_cls, patch(
+        "pse_data_scraper.cli.ensure_companies_csv"
+    ):
+        _run_main(monkeypatch, ["companies", "--timeout", "5"])
+
+    assert client_cls.call_args.kwargs["timeout_seconds"] == 5
+
+
+def test_timeout_from_config_reaches_client(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pse.toml").write_text("[network]\ntimeout = 12\n", encoding="utf-8")
+
+    with patch("pse_data_scraper.cli.PSEClient") as client_cls, patch(
+        "pse_data_scraper.cli.ensure_companies_csv"
+    ):
+        _run_main(monkeypatch, ["companies"])
+
+    assert client_cls.call_args.kwargs["timeout_seconds"] == 12
+
+
 def test_prices_sector_filters_existing_company_list(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     save_companies_to_csv(
@@ -212,3 +246,45 @@ def test_status_json_output(monkeypatch, tmp_path, capsys):
     assert payload["companies"]["rows"] == 1
     assert payload["combined"]["rows"] == 2
     assert payload["combined"]["date_range"] == ["2024-01-02", "2024-01-05"]
+
+
+def test_status_verbose_lists_latest_price_dates(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    _write_dataset(tmp_path)
+    history_dir = tmp_path / "data" / "history"
+    history_dir.mkdir()
+    with (history_dir / "TST_Test_Corp.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"])
+        writer.writerow(["TST", "Test Corp", "2024-01-05", "100", "10", "11", "12", "9"])
+
+    _run_main(monkeypatch, ["status", "--verbose"])
+
+    out = capsys.readouterr().out
+    assert "Latest price date per company (stalest first):" in out
+    assert "TST_Test_Corp.csv: 2024-01-05" in out
+
+
+def test_global_verbose_flag_survives_status_subcommand():
+    args = build_parser().parse_args(["--verbose", "status"])
+
+    assert args.verbose is True
+    assert args.status_verbose is False
+
+
+def test_status_verbose_flag_does_not_touch_global_verbose():
+    args = build_parser().parse_args(["status", "--verbose"])
+
+    assert args.status_verbose is True
+    assert args.verbose is False
+
+
+def test_status_json_output_stays_parseable_with_verbose(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    _write_dataset(tmp_path)
+
+    _run_main(monkeypatch, ["status", "--json", "--verbose"])
+
+    out = capsys.readouterr().out
+    assert "Latest price date per company" not in out
+    assert json.loads(out)["combined"]["rows"] == 2

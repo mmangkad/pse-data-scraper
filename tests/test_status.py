@@ -1,7 +1,7 @@
 import csv
 from pathlib import Path
 
-from pse_data_scraper.status import collect_status
+from pse_data_scraper.status import collect_status, latest_price_dates
 
 HISTORY_HEADER = ["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"]
 
@@ -72,3 +72,23 @@ def test_collect_status_missing_artifacts(tmp_path):
     assert status["combined"]["exists"] is False
     assert status["combined"]["rows"] is None
     assert status["combined"]["date_range"] is None
+
+
+def test_latest_price_dates_stalest_first(tmp_path):
+    history_dir = tmp_path / "history"
+    history_dir.mkdir()
+    _write_combined_csv(history_dir / "A_Fresh.csv", "2024-06-01")
+    _write_combined_csv(history_dir / "B_Stale.csv", "2024-01-01")
+    _write_combined_csv(history_dir / "C_Empty.csv")
+
+    entries = latest_price_dates(history_dir)
+
+    assert entries == [
+        ("C_Empty.csv", None),
+        ("B_Stale.csv", "2024-01-01"),
+        ("A_Fresh.csv", "2024-06-01"),
+    ]
+
+
+def test_latest_price_dates_empty_dir(tmp_path):
+    assert latest_price_dates(tmp_path / "missing") == []
