@@ -235,9 +235,13 @@ def handle_status(args) -> None:
 
 SECTOR_HELP = (
     'Filter by sector, e.g. "Mining and Oil" (the SME board is the literal '
-    'string "Small, Medium & Emerging Board")'
+    'string "Small, Medium & Emerging Board"); applies server-side when '
+    "scraping the directory and locally when a company list already exists"
 )
-KEYWORD_HELP = "Filter by company name substring (case-insensitive)"
+KEYWORD_HELP = (
+    "Company name substring (case-insensitive); applies server-side when "
+    "scraping the directory and locally when a company list already exists"
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
