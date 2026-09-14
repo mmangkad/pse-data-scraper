@@ -5,6 +5,7 @@ Command-line interface for the PSE Data Scraper.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 from dataclasses import replace
 from datetime import date
@@ -14,7 +15,7 @@ from typing import List, Optional
 from pse_data_scraper import __version__
 from pse_data_scraper.client import PSEClient
 from pse_data_scraper.config import DEFAULT_CONFIG_NAME, load_config, write_default_config
-from pse_data_scraper.downloader import download_historical_data
+from pse_data_scraper.downloader import SymbolNotFoundError, download_historical_data
 from pse_data_scraper.pipeline import ensure_companies_csv, export_prices, sync_data
 from pse_data_scraper.scraper import ScrapeIncompleteError
 from pse_data_scraper.status import collect_status
@@ -101,6 +102,14 @@ def _apply_overrides(config, args):
     if max_companies is not None:
         cfg.max_companies = max_companies if max_companies > 0 else None
 
+    sector = getattr(args, "sector", None)
+    if sector:
+        cfg.sector = sector
+
+    keyword = getattr(args, "keyword", None)
+    if keyword:
+        cfg.keyword = keyword
+
     cfg.resolve_paths()
     return cfg
 
@@ -132,6 +141,8 @@ def _print_status(status: dict) -> None:
         print(
             f"Combined CSV: {combined['path']} (rows={combined['rows']}, updated={combined['updated']}, range={range_text})"
         )
+        if combined["date_range"]:
+            print(f"Latest price date: {combined['date_range'][1]} (EDGE data lags ~1 trading day)")
     else:
         print(f"Combined CSV: missing ({combined['path']})")
 
@@ -153,6 +164,8 @@ def handle_companies(args) -> None:
         companies_csv=str(cfg.companies_csv),
         refresh=getattr(args, "refresh", False),
         max_pages=getattr(args, "max_pages", None),
+        keyword=cfg.keyword,
+        sector=cfg.sector,
     )
     if getattr(args, "list", False):
         for company in companies:
@@ -168,6 +181,8 @@ def handle_prices(args) -> None:
         client=client,
         companies_csv=str(cfg.companies_csv),
         max_pages=getattr(args, "max_pages", None),
+        keyword=cfg.keyword,
+        sector=cfg.sector,
     )
     download_historical_data(
         client=client,
@@ -204,13 +219,25 @@ def handle_sync(args) -> None:
         cache_dir=str(cfg.cache_dir) if cfg.cache_dir else None,
         refresh=getattr(args, "refresh", False),
         max_pages=getattr(args, "max_pages", None),
+        keyword=cfg.keyword,
+        sector=cfg.sector,
     )
 
 
 def handle_status(args) -> None:
     cfg = _resolve_config(args)
     status = collect_status(cfg.companies_csv, cfg.history_dir, cfg.combined_csv)
-    _print_status(status)
+    if getattr(args, "json", False):
+        print(json.dumps(status, indent=2))
+    else:
+        _print_status(status)
+
+
+SECTOR_HELP = (
+    'Filter by sector, e.g. "Mining and Oil" (the SME board is the literal '
+    'string "Small, Medium & Emerging Board")'
+)
+KEYWORD_HELP = "Filter by company name substring (case-insensitive)"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -252,6 +279,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sync_parser.add_argument("--max-companies", type=int, help="Limit number of companies")
     sync_parser.add_argument("--max-pages", type=int, help="Limit number of company pages")
+    sync_parser.add_argument("--sector", help=SECTOR_HELP)
+    sync_parser.add_argument("--keyword", help=KEYWORD_HELP)
     sync_parser.add_argument("--refresh", action="store_true", help="Refresh companies and prices")
     sync_parser.set_defaults(func=handle_sync)
 
@@ -260,6 +289,8 @@ def build_parser() -> argparse.ArgumentParser:
     companies_parser.add_argument("--companies", "--output", dest="companies", help="Companies CSV path")
     companies_parser.add_argument("--rate-limit", type=float, help="Seconds between requests")
     companies_parser.add_argument("--max-pages", type=int, help="Limit number of pages")
+    companies_parser.add_argument("--sector", help=SECTOR_HELP)
+    companies_parser.add_argument("--keyword", help=KEYWORD_HELP)
     companies_parser.add_argument("--refresh", action="store_true", help="Re-scrape companies")
     companies_parser.add_argument("--list", action="store_true", help="Print the company list")
     companies_parser.set_defaults(func=handle_companies)
@@ -288,6 +319,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     prices_parser.add_argument("--max-companies", type=int, help="Limit number of companies")
     prices_parser.add_argument("--max-pages", type=int, help="Limit number of company pages")
+    prices_parser.add_argument("--sector", help=SECTOR_HELP)
+    prices_parser.add_argument("--keyword", help=KEYWORD_HELP)
     prices_parser.add_argument(
         "--refresh", action="store_true", help="Re-download price history even if files exist"
     )
@@ -305,6 +338,7 @@ def build_parser() -> argparse.ArgumentParser:
     status_parser.add_argument("--companies", help="Companies CSV path")
     status_parser.add_argument("--history-dir", help="History data directory")
     status_parser.add_argument("--combined", help="Combined CSV path")
+    status_parser.add_argument("--json", action="store_true", help="Output the status as JSON")
     status_parser.set_defaults(func=handle_status)
 
     return parser
@@ -316,7 +350,7 @@ def main() -> None:
     _setup_logging(args.verbose, args.quiet)
     try:
         args.func(args)
-    except ScrapeIncompleteError as exc:
+    except (ScrapeIncompleteError, SymbolNotFoundError) as exc:
         logging.error("%s", exc)
         raise SystemExit(1)
 

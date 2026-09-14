@@ -1,3 +1,5 @@
+import csv
+import json
 import logging
 import sys
 from datetime import date
@@ -27,6 +29,21 @@ def test_incomplete_scrape_exits_nonzero_with_message(monkeypatch, tmp_path, cap
 
     assert excinfo.value.code == 1
     assert "directory request for page 2 failed" in caplog.text
+
+
+def test_unknown_symbols_exit_nonzero_with_message(monkeypatch, tmp_path, caplog):
+    monkeypatch.chdir(tmp_path)
+    save_companies_to_csv(
+        [Company(company_id="1", security_id="2", company_name="Test Corp", stock_symbol="TST")],
+        str(tmp_path / "data" / "companies.csv"),
+    )
+
+    # The error is raised before any request is made, so no mocking is needed.
+    with pytest.raises(SystemExit) as excinfo:
+        _run_main(monkeypatch, ["prices", "--symbols", "MERB"])
+
+    assert excinfo.value.code == 1
+    assert "None of the requested symbols (MERB)" in caplog.text
 
 
 def test_companies_refresh_scrapes_and_lists(monkeypatch, tmp_path, capsys):
@@ -104,3 +121,65 @@ def test_sync_refresh_refreshes_companies_and_prices(monkeypatch, tmp_path):
 
     assert ensure.call_args.kwargs["refresh"] is True
     assert download.call_args.kwargs["refresh"] is True
+
+
+def test_sector_and_keyword_flags_reach_company_scrape(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    with patch("pse_data_scraper.cli.ensure_companies_csv") as ensure:
+        _run_main(
+            monkeypatch,
+            ["companies", "--sector", "Mining and Oil", "--keyword", "Ayala"],
+        )
+
+    assert ensure.call_args.kwargs["sector"] == "Mining and Oil"
+    assert ensure.call_args.kwargs["keyword"] == "Ayala"
+
+
+def test_sector_and_keyword_from_config_reach_company_scrape(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pse.toml").write_text(
+        '[download]\nsector = "Services"\nkeyword = "Ayala"\n', encoding="utf-8"
+    )
+
+    with patch("pse_data_scraper.cli.ensure_companies_csv") as ensure:
+        _run_main(monkeypatch, ["companies"])
+
+    assert ensure.call_args.kwargs["sector"] == "Services"
+    assert ensure.call_args.kwargs["keyword"] == "Ayala"
+
+
+def _write_dataset(tmp_path) -> None:
+    """A minimal local dataset: companies.csv + combined.csv with two dates."""
+    save_companies_to_csv(
+        [Company(company_id="1", security_id="2", company_name="Test Corp", stock_symbol="TST")],
+        str(tmp_path / "data" / "companies.csv"),
+    )
+    with (tmp_path / "data" / "combined.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"])
+        writer.writerow(["TST", "Test Corp", "2024-01-02", "100", "10", "11", "12", "9"])
+        writer.writerow(["TST", "Test Corp", "2024-01-05", "100", "10", "11", "12", "9"])
+
+
+def test_status_shows_freshness_line(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    _write_dataset(tmp_path)
+
+    _run_main(monkeypatch, ["status"])
+
+    out = capsys.readouterr().out
+    assert "Latest price date: 2024-01-05 (EDGE data lags ~1 trading day)" in out
+
+
+def test_status_json_output(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    _write_dataset(tmp_path)
+
+    _run_main(monkeypatch, ["status", "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert set(payload) == {"companies", "history", "combined"}
+    assert payload["companies"]["rows"] == 1
+    assert payload["combined"]["rows"] == 2
+    assert payload["combined"]["date_range"] == ["2024-01-02", "2024-01-05"]

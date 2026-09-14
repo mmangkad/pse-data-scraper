@@ -46,11 +46,21 @@ def test_ensure_companies_csv_scrapes_and_saves_when_missing(tmp_path):
     with patch("pse_data_scraper.pipeline.scrape_companies", return_value=companies) as mock_scrape:
         result = ensure_companies_csv(client, str(companies_csv))
 
-    mock_scrape.assert_called_once_with(client, max_pages=None)
+    mock_scrape.assert_called_once_with(client, max_pages=None, keyword=None, sector=None)
     assert result == companies
     assert companies_csv.exists()
     content = companies_csv.read_text(encoding="utf-8")
     assert "sector,subsector,listingDate" in content
+
+
+def test_ensure_companies_csv_passes_directory_filters(tmp_path):
+    companies_csv = tmp_path / "companies.csv"
+    client = PSEClient(rate_limit_seconds=0.0)
+
+    with patch("pse_data_scraper.pipeline.scrape_companies", return_value=[]) as mock_scrape:
+        ensure_companies_csv(client, str(companies_csv), keyword="Ayala", sector="Services")
+
+    mock_scrape.assert_called_once_with(client, max_pages=None, keyword="Ayala", sector="Services")
 
 
 def test_ensure_companies_csv_keeps_existing_file_on_incomplete_scrape(tmp_path):
@@ -96,7 +106,7 @@ def test_ensure_companies_csv_refuses_smaller_page_limited_scrape(tmp_path):
         with pytest.raises(ScrapeIncompleteError, match="Refusing to overwrite"):
             ensure_companies_csv(client, str(companies_csv), refresh=True, max_pages=1)
 
-    mock_scrape.assert_called_once_with(client, max_pages=1)
+    mock_scrape.assert_called_once_with(client, max_pages=1, keyword=None, sector=None)
     assert companies_csv.read_text(encoding="utf-8") == before
 
 

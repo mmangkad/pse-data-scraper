@@ -8,10 +8,11 @@ import csv
 import logging
 import os
 from collections import Counter
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence
+from typing import Dict, Iterable, List, Mapping, Optional, Sequence
 
 import requests
 
@@ -30,6 +31,35 @@ logger = logging.getLogger(__name__)
 
 HISTORICAL_DATA_URL = "https://edge.pse.com.ph/common/DisclosureCht.ax"
 HISTORICAL_DATA_REFERER = "https://edge.pse.com.ph/companyPage/stockData.do"
+
+
+class CorruptHistoryError(ValueError):
+    """Raised when a history CSV has malformed rows and needs a full re-fetch."""
+
+
+class SymbolNotFoundError(ValueError):
+    """Raised when none of the requested symbols exist in the company directory."""
+
+
+@dataclass
+class SyncReport:
+    """Outcome of a download run: written files plus per-status company counts."""
+
+    saved_paths: List[Path] = field(default_factory=list)
+    status_counts: Counter = field(default_factory=Counter)
+
+
+def format_run_summary(counts: Mapping[str, int]) -> str:
+    """Render per-status counts as the one-line end-of-run summary."""
+    failed = counts.get("failed", 0)
+    failed_text = f"{failed} failed (see warnings above)" if failed else "0 failed"
+    return (
+        f"Done: {counts.get('up_to_date', 0)} up-to-date, "
+        f"{counts.get('saved_incremental', 0)} updated, "
+        f"{counts.get('saved_full', 0)} saved new, "
+        f"{failed_text}, "
+        f"{counts.get('no_data', 0)} no-data"
+    )
 
 
 def _build_history_payload(
@@ -113,7 +143,11 @@ def read_last_csv_date(path: Path) -> Optional[date]:
 
 
 def read_company_history_csv(input_path: Path) -> List[HistoricalPrice]:
-    """Read a history CSV back into rows (malformed rows are skipped)."""
+    """Read a history CSV back into rows.
+
+    Raises CorruptHistoryError on the first malformed row so callers can
+    fall back to a full re-fetch instead of silently dropping data.
+    """
     rows: List[HistoricalPrice] = []
     with input_path.open("r", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
@@ -130,8 +164,8 @@ def read_company_history_csv(input_path: Path) -> List[HistoricalPrice]:
                         low=Decimal(row["Low"]),
                     )
                 )
-            except (KeyError, ValueError, InvalidOperation):
-                logger.warning("Skipping malformed history row in %s", input_path)
+            except (KeyError, ValueError, InvalidOperation) as exc:
+                raise CorruptHistoryError(f"{input_path} has a malformed row: {exc}") from exc
     return rows
 
 
@@ -188,13 +222,26 @@ def download_historical_data(
     max_companies: Optional[int] = None,
     cache_dir: Optional[str] = ".cache",
     refresh: bool = False,
-) -> List[Path]:
+) -> SyncReport:
     if companies is None and input_csv is None:
         raise ValueError("Either 'companies' or 'input_csv' must be provided")
     if companies is None:
         companies = load_companies_from_csv(input_csv)
 
     symbol_set = {symbol.strip().upper() for symbol in symbols} if symbols else None
+    if symbol_set:
+        available = {company.stock_symbol.upper() for company in companies}
+        for missing in sorted(symbol_set - available):
+            logger.warning(
+                "Symbol %s not found in company directory (it may be a preferred/warrant/"
+                "delisted security — EDGE lists primary securities only)",
+                missing,
+            )
+        if not symbol_set & available:
+            raise SymbolNotFoundError(
+                f"None of the requested symbols ({', '.join(sorted(symbol_set))}) were found "
+                "in the company directory."
+            )
     output_root = Path(output_dir)
 
     start_payload = ensure_payload_date(start_date or "01-01-1900")
@@ -202,7 +249,7 @@ def download_historical_data(
 
     saved_paths: List[Path] = []
     # Per-company outcomes (saved_full / saved_incremental / up_to_date /
-    # no_data / failed), surfaced by future run summaries.
+    # no_data / failed), surfaced by the run summary and the SyncReport.
     status_counts: Counter = Counter()
     processed = 0
 
@@ -221,21 +268,24 @@ def download_historical_data(
         # An existing file (without --refresh) means an incremental update:
         # fetch only what is missing and merge into the file. With an explicit
         # --from, the requested range is fetched and merged (backfill or
-        # extension). An unreadable file self-heals via a full fetch.
+        # extension). An unreadable or partially corrupt file self-heals via
+        # a full fetch.
         existing_rows: Optional[List[HistoricalPrice]] = None
+        fetch_start = start_payload
         if not refresh and output_path.exists():
             last_date = read_last_csv_date(output_path)
             if last_date is not None:
-                fetch_start = (
-                    start_payload
-                    if start_date is not None
-                    else ensure_payload_date(last_date + timedelta(days=1))
-                )
-                existing_rows = read_company_history_csv(output_path)
-            else:
-                fetch_start = start_payload
-        else:
-            fetch_start = start_payload
+                try:
+                    existing_rows = read_company_history_csv(output_path)
+                except CorruptHistoryError as exc:
+                    logger.warning("%s; re-fetching in full", exc)
+                    existing_rows = None
+                if existing_rows is not None:
+                    fetch_start = (
+                        start_payload
+                        if start_date is not None
+                        else ensure_payload_date(last_date + timedelta(days=1))
+                    )
 
         logger.info("[%s] %s %s %s", processed, company.stock_symbol, company.company_id, company.company_name)
 
@@ -274,5 +324,5 @@ def download_historical_data(
             status_counts["failed"] += 1
             logger.warning("Unexpected payload for %s: %s", company.company_name, exc)
 
-    logger.debug("Download tally: %s", dict(status_counts))
-    return saved_paths
+    logger.info("%s", format_run_summary(status_counts))
+    return SyncReport(saved_paths=saved_paths, status_counts=status_counts)

@@ -29,6 +29,7 @@ def combine_csvs(data_folder: str = "data/history", output_file: str = "data/com
         writer = csv.writer(outfile)
         writer.writerow(["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"])
 
+        rows_written = 0
         for file_path in csv_files:
             with file_path.open("r", encoding="utf-8") as infile:
                 reader = csv.DictReader(infile)
@@ -48,6 +49,7 @@ def combine_csvs(data_folder: str = "data/history", output_file: str = "data/com
                             row.get("Low", ""),
                         ]
                     )
+                    rows_written += 1
 
-    logger.info("All files combined into: %s", output_path)
+    logger.info("Combined %s rows from %s files into: %s", rows_written, len(csv_files), output_path)
     return output_path

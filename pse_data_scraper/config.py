@@ -84,6 +84,8 @@ class Config:
     end_date: Optional[str] = None
     symbols: List[str] = field(default_factory=list)
     max_companies: Optional[int] = None
+    sector: Optional[str] = None
+    keyword: Optional[str] = None
 
     def resolve_paths(self) -> None:
         data_dir = Path(self.data_dir)
@@ -160,6 +162,10 @@ def load_config(path: Optional[str] = None) -> Config:
         config.symbols = _parse_symbols(download["symbols"])
     if "max_companies" in download:
         config.max_companies = _normalize_positive_int(download["max_companies"])
+    if "sector" in download and download["sector"]:
+        config.sector = str(download["sector"])
+    if "keyword" in download and download["keyword"]:
+        config.keyword = str(download["keyword"])
 
     config.resolve_paths()
     return config

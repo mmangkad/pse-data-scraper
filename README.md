@@ -87,7 +87,8 @@ from pse_data_scraper.combiner import combine_csvs
 client = PSEClient(rate_limit_seconds=0.6)
 companies = scrape_companies(client)
 save_companies_to_csv(companies, "data/companies.csv")
-download_historical_data(client, companies=companies, output_dir="data/history")
+report = download_historical_data(client, companies=companies, output_dir="data/history")
+# report.status_counts, e.g. {"saved_full": 282, "up_to_date": 0, ...}
 combine_csvs("data/history", "data/combined.csv")
 ```
 

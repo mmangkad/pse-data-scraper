@@ -11,8 +11,12 @@ import requests
 
 from pse_data_scraper.client import PSEClient
 from pse_data_scraper.downloader import (
+    CorruptHistoryError,
+    SymbolNotFoundError,
+    SyncReport,
     download_historical_data,
     fetch_historical_data,
+    format_run_summary,
     merge_history_rows,
     read_company_history_csv,
     read_last_csv_date,
@@ -248,18 +252,16 @@ def test_read_company_history_csv_round_trips_written_rows(tmp_path, make_compan
     assert read_company_history_csv(path) == rows
 
 
-def test_read_company_history_csv_skips_malformed_rows(tmp_path):
+def test_read_company_history_csv_raises_on_malformed_rows(tmp_path):
     path = _history_path(tmp_path)
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"])
         writer.writerow(["TST", "Test Corp", "2024-01-02", "100", "10", "11", "12", "9"])
         writer.writerow(["TST", "Test Corp", "not-a-date", "100", "10", "11", "12", "9"])
-        writer.writerow(["TST", "Test Corp", "2024-01-03", "oops", "10", "11", "12", "9"])
 
-    rows = read_company_history_csv(path)
-
-    assert [row.date for row in rows] == [date(2024, 1, 2)]
+    with pytest.raises(CorruptHistoryError, match="malformed row"):
+        read_company_history_csv(path)
 
 
 def test_merge_history_rows_dedupes_with_newer_fetch_winning():
@@ -300,11 +302,12 @@ def test_write_company_history_csv_failure_keeps_existing_file(tmp_path, make_co
 def test_download_historical_data_full_fetch_when_no_file(tmp_path, make_company):
     client = _client_returning(_chart_payload(date(2024, 1, 2), date(2024, 1, 3)))
 
-    paths = download_historical_data(
+    report = download_historical_data(
         client, companies=[make_company()], output_dir=str(tmp_path), end_date="2024-01-31", cache_dir=None
     )
 
-    assert paths == [_history_path(tmp_path)]
+    assert report.saved_paths == [_history_path(tmp_path)]
+    assert report.status_counts == {"saved_full": 1}
     payload = client.post.call_args.kwargs["json"]
     assert payload["startDate"] == "01-01-1900"
     assert payload["endDate"] == "01-31-2024"
@@ -330,13 +333,14 @@ def test_download_historical_data_merges_without_duplicates(tmp_path, make_compa
     _write_history_csv(path, "2024-01-02", "2024-01-05")
     client = _client_returning(_chart_payload(date(2024, 1, 5), date(2024, 1, 8)))
 
-    paths = download_historical_data(
+    report = download_historical_data(
         client, companies=[make_company()], output_dir=str(tmp_path), end_date="2024-01-31", cache_dir=None
     )
 
     _, data = _read_csv(path)
     assert [row[2] for row in data] == ["2024-01-02", "2024-01-05", "2024-01-08"]
-    assert paths == [path]
+    assert report.saved_paths == [path]
+    assert report.status_counts == {"saved_incremental": 1}
 
 
 def test_download_historical_data_no_new_rows_leaves_file_untouched(tmp_path, make_company):
@@ -345,12 +349,48 @@ def test_download_historical_data_no_new_rows_leaves_file_untouched(tmp_path, ma
     before = path.read_bytes()
     client = _client_returning({"chartData": []})
 
-    paths = download_historical_data(
+    report = download_historical_data(
         client, companies=[make_company()], output_dir=str(tmp_path), end_date="2024-01-31", cache_dir=None
     )
 
-    assert paths == [path]
+    assert report.saved_paths == [path]
+    assert report.status_counts == {"up_to_date": 1}
     assert path.read_bytes() == before
+
+
+def test_format_run_summary_all_zero():
+    assert format_run_summary({}) == (
+        "Done: 0 up-to-date, 0 updated, 0 saved new, 0 failed, 0 no-data"
+    )
+
+
+def test_format_run_summary_with_failures():
+    counts = {
+        "up_to_date": 274,
+        "saved_incremental": 5,
+        "saved_full": 2,
+        "failed": 1,
+        "no_data": 0,
+    }
+    assert format_run_summary(counts) == (
+        "Done: 274 up-to-date, 5 updated, 2 saved new, 1 failed (see warnings above), 0 no-data"
+    )
+
+
+def test_download_historical_data_logs_run_summary(tmp_path, make_company, caplog):
+    _write_history_csv(_history_path(tmp_path), "2024-01-02", "2024-01-05")
+    client = _client_returning({"chartData": []})
+
+    with caplog.at_level(logging.INFO):
+        download_historical_data(
+            client,
+            companies=[make_company(), make_company(symbol="NEW", company_id="9")],
+            output_dir=str(tmp_path),
+            end_date="2024-01-31",
+            cache_dir=None,
+        )
+
+    assert "Done: 1 up-to-date, 0 updated, 0 saved new, 0 failed, 1 no-data" in caplog.text
 
 
 def test_download_historical_data_corrupt_file_triggers_full_fetch(tmp_path, make_company):
@@ -366,6 +406,26 @@ def test_download_historical_data_corrupt_file_triggers_full_fetch(tmp_path, mak
     assert payload["startDate"] == "01-01-1900"
     _, data = _read_csv(path)
     assert [row[2] for row in data] == ["2024-01-02"]
+
+
+def test_download_historical_data_partially_corrupt_file_triggers_full_fetch(tmp_path, make_company):
+    """A file with valid dates but some malformed rows must not lose rows on merge."""
+    path = _history_path(tmp_path)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"])
+        writer.writerow(["TST", "Test Corp", "2024-01-02", "100", "10", "11", "12", "9"])
+        writer.writerow(["TST", "Test Corp", "2024-01-05", "oops", "10", "11", "12", "9"])
+    client = _client_returning(_chart_payload(date(2024, 1, 2), date(2024, 1, 8)))
+
+    download_historical_data(
+        client, companies=[make_company()], output_dir=str(tmp_path), end_date="2024-01-31", cache_dir=None
+    )
+
+    payload = client.post.call_args.kwargs["json"]
+    assert payload["startDate"] == "01-01-1900"
+    _, data = _read_csv(path)
+    assert [row[2] for row in data] == ["2024-01-02", "2024-01-08"]
 
 
 def test_download_historical_data_explicit_start_merges_range(tmp_path, make_company):
@@ -406,6 +466,55 @@ def test_download_historical_data_refresh_ignores_existing_file(tmp_path, make_c
     assert payload["startDate"] == "01-01-1900"
     _, data = _read_csv(path)
     assert [row[2] for row in data] == ["2024-01-08"]
+
+
+def test_download_historical_data_warns_on_unmatched_symbols(tmp_path, make_company, caplog):
+    client = _client_returning(_chart_payload(date(2024, 1, 2)))
+
+    with caplog.at_level(logging.WARNING):
+        download_historical_data(
+            client,
+            companies=[make_company()],
+            output_dir=str(tmp_path),
+            symbols=["TST", "MERB"],
+            end_date="2024-01-31",
+            cache_dir=None,
+        )
+
+    assert "Symbol MERB not found in company directory" in caplog.text
+    assert "EDGE lists primary securities only" in caplog.text
+
+
+def test_download_historical_data_raises_when_no_symbols_match(tmp_path, make_company):
+    client = _client_returning(_chart_payload(date(2024, 1, 2)))
+
+    with pytest.raises(SymbolNotFoundError, match="MERB"):
+        download_historical_data(
+            client,
+            companies=[make_company()],
+            output_dir=str(tmp_path),
+            symbols=["MERB"],
+            end_date="2024-01-31",
+            cache_dir=None,
+        )
+
+    client.post.assert_not_called()
+
+
+def test_download_historical_data_no_warning_when_all_symbols_match(tmp_path, make_company, caplog):
+    client = _client_returning(_chart_payload(date(2024, 1, 2)))
+
+    with caplog.at_level(logging.WARNING):
+        download_historical_data(
+            client,
+            companies=[make_company()],
+            output_dir=str(tmp_path),
+            symbols=["tst"],
+            end_date="2024-01-31",
+            cache_dir=None,
+        )
+
+    assert "not found in company directory" not in caplog.text
 
 
 def test_download_historical_data_raises_without_companies_or_csv():
