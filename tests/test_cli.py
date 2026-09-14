@@ -1,3 +1,5 @@
+import csv
+import json
 import logging
 import sys
 from datetime import date
@@ -145,3 +147,39 @@ def test_sector_and_keyword_from_config_reach_company_scrape(monkeypatch, tmp_pa
 
     assert ensure.call_args.kwargs["sector"] == "Services"
     assert ensure.call_args.kwargs["keyword"] == "Ayala"
+
+
+def _write_dataset(tmp_path) -> None:
+    """A minimal local dataset: companies.csv + combined.csv with two dates."""
+    save_companies_to_csv(
+        [Company(company_id="1", security_id="2", company_name="Test Corp", stock_symbol="TST")],
+        str(tmp_path / "data" / "companies.csv"),
+    )
+    with (tmp_path / "data" / "combined.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["Symbol", "Company", "Date", "Value", "Open", "Close", "High", "Low"])
+        writer.writerow(["TST", "Test Corp", "2024-01-02", "100", "10", "11", "12", "9"])
+        writer.writerow(["TST", "Test Corp", "2024-01-05", "100", "10", "11", "12", "9"])
+
+
+def test_status_shows_freshness_line(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    _write_dataset(tmp_path)
+
+    _run_main(monkeypatch, ["status"])
+
+    out = capsys.readouterr().out
+    assert "Latest price date: 2024-01-05 (EDGE data lags ~1 trading day)" in out
+
+
+def test_status_json_output(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    _write_dataset(tmp_path)
+
+    _run_main(monkeypatch, ["status", "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert set(payload) == {"companies", "history", "combined"}
+    assert payload["companies"]["rows"] == 1
+    assert payload["combined"]["rows"] == 2
+    assert payload["combined"]["date_range"] == ["2024-01-02", "2024-01-05"]

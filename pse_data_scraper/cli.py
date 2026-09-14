@@ -5,6 +5,7 @@ Command-line interface for the PSE Data Scraper.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 from dataclasses import replace
 from datetime import date
@@ -140,6 +141,8 @@ def _print_status(status: dict) -> None:
         print(
             f"Combined CSV: {combined['path']} (rows={combined['rows']}, updated={combined['updated']}, range={range_text})"
         )
+        if combined["date_range"]:
+            print(f"Latest price date: {combined['date_range'][1]} (EDGE data lags ~1 trading day)")
     else:
         print(f"Combined CSV: missing ({combined['path']})")
 
@@ -224,7 +227,10 @@ def handle_sync(args) -> None:
 def handle_status(args) -> None:
     cfg = _resolve_config(args)
     status = collect_status(cfg.companies_csv, cfg.history_dir, cfg.combined_csv)
-    _print_status(status)
+    if getattr(args, "json", False):
+        print(json.dumps(status, indent=2))
+    else:
+        _print_status(status)
 
 
 SECTOR_HELP = (
@@ -332,6 +338,7 @@ def build_parser() -> argparse.ArgumentParser:
     status_parser.add_argument("--companies", help="Companies CSV path")
     status_parser.add_argument("--history-dir", help="History data directory")
     status_parser.add_argument("--combined", help="Combined CSV path")
+    status_parser.add_argument("--json", action="store_true", help="Output the status as JSON")
     status_parser.set_defaults(func=handle_status)
 
     return parser
