@@ -75,13 +75,15 @@ def fetch_historical_data(
     response_payload = response.json()
 
     chart_data = response_payload.get("chartData", [])
-    results: List[HistoricalPrice] = []
+    # The API occasionally repeats a date (observed live: the same record
+    # returned up to 22 times for one date) — keep one row per date, the
+    # last record seen.
+    by_date: Dict[date, HistoricalPrice] = {}
     for item in chart_data:
         parsed = HistoricalPrice.from_api(item, company.stock_symbol)
         if parsed is not None:
-            results.append(parsed)
-    results.sort(key=lambda r: r.date)
-    return results
+            by_date[parsed.date] = parsed
+    return [by_date[key] for key in sorted(by_date)]
 
 
 def read_last_csv_date(path: Path) -> Optional[date]:

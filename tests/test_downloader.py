@@ -126,6 +126,24 @@ def test_fetch_historical_data_skips_malformed_records(make_company, mock_client
     assert results[0].date == date(2024, 1, 2)
 
 
+def test_fetch_historical_data_dedupes_repeated_dates(make_company, mock_client):
+    # The API sometimes returns the same date more than once (live-verified
+    # on BDO's full history); the last record wins.
+    data = {
+        "chartData": [
+            {"CHART_DATE": "Jan 02, 2024 00:00:00", "VALUE": 100.0, "OPEN": 10.0, "CLOSE": 11.0, "HIGH": 12.0, "LOW": 9.0},
+            {"CHART_DATE": "Jan 02, 2024 00:00:00", "VALUE": 100.0, "OPEN": 10.0, "CLOSE": 11.0, "HIGH": 12.0, "LOW": 9.0},
+            {"CHART_DATE": "Jan 02, 2024 00:00:00", "VALUE": 100.0, "OPEN": 10.0, "CLOSE": 12.0, "HIGH": 12.0, "LOW": 9.0},
+            {"CHART_DATE": "Jan 03, 2024 00:00:00", "VALUE": 100.0, "OPEN": 10.0, "CLOSE": 11.0, "HIGH": 12.0, "LOW": 9.0},
+        ]
+    }
+    client = mock_client(data)
+    results = fetch_historical_data(client, make_company(), "01-01-2024", "01-31-2024")
+
+    assert [row.date for row in results] == [date(2024, 1, 2), date(2024, 1, 3)]
+    assert results[0].close == Decimal("12")
+
+
 def test_fetch_historical_data_parses_captured_mer_response(make_company, mock_client):
     """Contract test against a real DisclosureCht.ax response captured 2026-09-15."""
     payload = json.loads((FIXTURES_DIR / "disclosure_chart_mer.json").read_text(encoding="utf-8"))
